@@ -4,8 +4,8 @@ import gleeunit/should
 import gleam/bytes_builder
 import gleam/option.{Some, None}
 
-import section
-import types/limits.{Limits}
+import gwr/section
+import gwr/types/limits.{Limits}
 
 pub fn main()
 {

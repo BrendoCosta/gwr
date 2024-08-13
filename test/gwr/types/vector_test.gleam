@@ -1,7 +1,7 @@
 import gleeunit
 import gleeunit/should
 
-import types/vector as vector
+import gwr/types/vector as vector
 
 pub fn main()
 {

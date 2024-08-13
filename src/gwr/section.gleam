@@ -4,10 +4,10 @@ import gleam/int
 import gleam/option.{type Option, Some, None}
 import gleam/result
 
-import util
-import types/limits.{type Limits}
-import types/name
-import types/vector
+import gwr/util
+import gwr/types/limits.{type Limits}
+import gwr/types/name
+import gwr/types/vector
 
 // Each section consists of
 //     - a one-byte section id,

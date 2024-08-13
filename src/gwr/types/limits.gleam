@@ -3,8 +3,8 @@ import gleam/list
 import gleam/option.{type Option, Some, None}
 import gleam/result
 
-import util
-import types/vector as vector
+import gwr/util
+import gwr/types/vector as vector
 
 // https://webassembly.github.io/spec/core/binary/types.html#limits
 pub type Limits

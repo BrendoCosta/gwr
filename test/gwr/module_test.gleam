@@ -1,7 +1,7 @@
 import gleeunit
 import gleeunit/should
 
-import module
+import gwr/module
 
 pub fn main()
 {

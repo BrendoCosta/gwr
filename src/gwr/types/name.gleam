@@ -2,7 +2,7 @@
 import gleam/bit_array
 import gleam/result
 
-import types/vector as vector
+import gwr/types/vector as vector
 
 // Names are encoded as a vector of bytes containing the Unicode (Section 3.9) UTF-8 encoding of the name’s character sequence.
 // https://webassembly.github.io/spec/core/binary/values.html#binary-name

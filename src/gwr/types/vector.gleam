@@ -3,7 +3,7 @@ import gleam/bool
 import gleam/int
 import gleam/result
 
-import util
+import gwr/util
 
 // Vectors are encoded with their u32 length followed by the encoding of their element sequence.
 // https://webassembly.github.io/spec/core/binary/conventions.html#binary-vec

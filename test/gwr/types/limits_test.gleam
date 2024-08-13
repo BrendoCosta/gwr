@@ -2,8 +2,8 @@ import gleeunit
 import gleeunit/should
 import gleam/option.{Some, None}
 
-import types/limits.{Limits}
-import types/vector
+import gwr/types/limits.{Limits}
+import gwr/types/vector
 
 pub fn main()
 {
