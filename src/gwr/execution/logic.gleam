@@ -1,0 +1,2 @@
+//pub fn i32_add(configuration: Configuration, stack: Stack) -> Result(#(Configuration, Stack), String)
+//pub fn local_get(configuration: Configuration, stack: Stack) -> Result(#(Configuration, Stack), String)

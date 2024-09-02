@@ -1,5 +1,5 @@
 name = "gwr"
-version = "0.0.1"
+version = "0.0.2"
 description = "An experimental work-in-progress (WIP) WebAssembly runtime written in Gleam."
 licences = ["MIT"]
 repository = { type = "github", user = "BrendoCosta", repo = "gwr" }
@@ -10,3 +10,4 @@ gleb128 = ">= 2.0.0 and < 3.0.0"
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
+simplifile = ">= 2.1.0 and < 3.0.0"
