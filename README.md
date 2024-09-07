@@ -78,15 +78,15 @@ gleam add simplifile
 ```
 
 ```gleam
-import gwr/execution/instance
+import gwr/gwr
 import gwr/execution/runtime
 import simplifile
 
 pub fn main()
 {
     let assert Ok(module_data) = simplifile.read_bits(from: "sum.wasm")
-    let assert Ok(instance) = instance.create(from: module_data)
-    let assert Ok(#(instance, result)) = instance.call(instance, "sum", [runtime.Number(4), runtime.Number(2)])
+    let assert Ok(instance) = gwr.create(from: module_data)
+    let assert Ok(#(instance, result)) = gwr.call(instance, "sum", [runtime.Number(4), runtime.Number(2)])
     let assert [runtime.Number(6)] = result
 }
 ```
