@@ -4,6 +4,8 @@ import gwr/syntax/module
 import gwr/syntax/types
 import gwr/syntax/value
 
+pub const memory_page_size = 65_536
+
 pub type ReferenceValueType
 {
     Null
@@ -24,31 +26,12 @@ pub const vector_value_default_value = 0
 pub const reference_value_default_value = Null
 
 /// A result is the outcome of a computation. It is either a sequence of values or a trap.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#results
 pub type ExecutionResult
 {
     Success(List(Value))
     Trap
-}
-
-/// The store represents all global state that can be manipulated by WebAssembly programs.
-/// It consists of the runtime representation of all instances of functions, tables, memories,
-/// and globals, element segments, and data segments that have been allocated during the
-/// life time of the abstract machine.
-/// 
-/// https://webassembly.github.io/spec/core/exec/runtime.html#store
-pub type Store
-{
-    Store
-    (
-        functions: List(FunctionInstance),
-        tables: List(TableInstance),
-        memories: List(MemoryInstance),
-        globals: List(GlobalInstance),
-        elements: List(ElementInstance),
-        datas: List(DataInstance),
-    )
 }
 
 /// https://webassembly.github.io/spec/core/exec/runtime.html#addresses
@@ -66,7 +49,7 @@ pub type Address
 /// A module instance is the runtime representation of a module. It is created by instantiating
 /// a module, and collects runtime representations of all entities that are imported, defined,
 /// or exported by the module.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#module-instances
 pub type ModuleInstance
 {
@@ -87,7 +70,7 @@ pub type ModuleInstance
 /// closure of the original function over the runtime module instance of its originating
 /// module. The module instance is used to resolve references to other definitions during
 /// execution of the function.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#function-instances
 pub type FunctionInstance
 {
@@ -97,7 +80,7 @@ pub type FunctionInstance
 
 /// A table instance is the runtime representation of a table. It records its type and
 /// holds a vector of reference value.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#table-instances
 pub type TableInstance
 {
@@ -106,7 +89,7 @@ pub type TableInstance
 
 /// A memory instance is the runtime representation of a linear memory. It records its
 /// type and holds a vector of bytes.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances
 pub type MemoryInstance
 {
@@ -115,7 +98,7 @@ pub type MemoryInstance
 
 /// A global instance is the runtime representation of a global variable. It records its
 /// type and holds an individual value.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#global-instances
 pub type GlobalInstance
 {
@@ -124,7 +107,7 @@ pub type GlobalInstance
 
 /// An element instance is the runtime representation of an element segment. It holds a
 /// vector of references and their common type.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#element-instances
 pub type ElementInstance
 {
@@ -132,7 +115,7 @@ pub type ElementInstance
 }
 
 /// An data instance is the runtime representation of a data segment. It holds a vector of bytes.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#data-instances
 pub type DataInstance
 {
@@ -141,7 +124,7 @@ pub type DataInstance
 
 /// An export instance is the runtime representation of an export. It defines
 /// the export’s name and the associated external value.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#export-instances
 pub type ExportInstance
 {
@@ -151,7 +134,7 @@ pub type ExportInstance
 /// An external value is the runtime representation of an entity that can be imported
 /// or exported. It is an address denoting either a function instance, table instance,
 /// memory instance, or global instances in the shared store.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#external-values
 pub type ExternalValue
 {

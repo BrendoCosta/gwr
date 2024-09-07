@@ -6,26 +6,27 @@ import gleam/option
 
 import gwr/execution/runtime
 import gwr/execution/stack
+import gwr/execution/store
 import gwr/syntax/index
 import gwr/syntax/instruction
 import gwr/syntax/module
 import gwr/syntax/types
 
 /// A configuration consists of the current store and an executing thread.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#configurations
 pub type Configuration
 {
-    Configuration(store: runtime.Store, thread: Thread)
+    Configuration(store: store.Store, thread: Thread)
 }
 
 /// A thread is a computation over instructions that operates relative to the state of
 /// a current frame referring to the module instance in which the computation runs, i.e.,
 /// where the current function originates from.
-/// 
+///
 /// NOTE: The current version of WebAssembly is single-threaded, but configurations with
 /// multiple threads may be supported in the future.
-/// 
+///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#configurations
 pub type Thread
 {
@@ -44,57 +45,81 @@ pub type MachineState
 
 pub fn initialize(from module: module.Module) -> Result(Machine, String)
 {
+
+    let store = store.Store
+    (
+        datas: [],
+        elements: [],
+        functions: [],
+        globals: [],
+        memories: [],
+        tables: [],
+    )
+
+    // Instantiates web aseembly functions
+
+    use store <- result.try(
+        list.fold(
+            from: Ok(store),
+            over: module.functions,
+            with: fn (store, function)
+            {
+                use store <- result.try(store)
+                use store <- result.try(
+                    store
+                    |> store.append_web_assembly_function(function, module.types)
+                )
+                Ok(store)
+            }
+        )
+    )
+
+    // Instantiates memories
+
+    let store = list.fold(
+        from: store,
+        over: module.memories,
+        with: fn (store, memory)
+        {
+            store
+            |> store.append_memory(memory)
+        }
+    )
+
     let module_instance = runtime.ModuleInstance
     (
         types: module.types,
-        function_addresses: [],
+        function_addresses: list.index_map(store.functions, fn (_, index) { runtime.FunctionAddress(index) }),
         table_addresses: [],
-        memory_addresses: [],
+        memory_addresses: list.index_map(store.memories, fn (_, index) { runtime.MemoryAddress(index) }),
         global_addresses: [],
         element_addresses: [],
         data_addresses: [],
         exports: [],
     )
 
-    let config = Configuration
+    // Remaining configuration
+
+    let thread = Thread
     (
-        store: runtime.Store
-        (
-            datas: [],
-            elements: [],
-            functions: [],
-            globals: [],
-            memories: [],
-            tables: [],
-        ),
-        thread: Thread(
-            framestate: stack.FrameState(
-                locals: [],
-                module_instance: module_instance
-            ),
-            instructions: []
-        )
+        framestate: stack.FrameState(locals: [], module_instance: module_instance),
+        instructions: []
     )
 
-    let stack = stack.create()
-
-    // Allocates web aseembly functions
-
-    use #(store, allocations) <- result.try(
-        list.fold(
-            from: Ok(#(config.store, [])),
-            over: module.functions,
-            with: fn (state, function)
-            {
-                use #(store, allocations) <- result.try(state)
-                allocate_web_assembly_function(function, store, allocations, module.types)
-            }
-        )
+    let configuration = update_references(
+        from: Configuration(store: store, thread: thread),
+        with: module_instance
     )
 
-    let module_instance = runtime.ModuleInstance(..module_instance, function_addresses: allocations)
+    let state = MachineState(configuration: configuration, stack: stack.create())
 
-    let results = list.filter_map(store.functions, fn (function) {
+    Ok(Machine(state: state, module_instance: module_instance))
+
+}
+
+pub fn update_references(from configuration: Configuration, with module_instance: runtime.ModuleInstance) -> Configuration
+{
+    let updated_functions = list.filter_map(configuration.store.functions, fn (function) {
         case function
         {
             runtime.WebAssemblyFunctionInstance(type_: type_, module_instance: _, code: code) -> Ok(runtime.WebAssemblyFunctionInstance(type_: type_, module_instance: module_instance, code: code))
@@ -102,45 +127,17 @@ pub fn initialize(from module: module.Module) -> Result(Machine, String)
         }
     })
 
-    let store = runtime.Store(..store, functions: results)
-    // We need to update the thread's framestate's module_instance too
-    let thread = Thread(..config.thread, framestate: stack.FrameState(..config.thread.framestate, module_instance: module_instance))
+    let store = store.Store(..configuration.store, functions: updated_functions)
 
-    Ok(Machine(state: MachineState(configuration: Configuration(store: store, thread: thread), stack: stack), module_instance: module_instance))
+    // Remaining configuration
 
-}
-
-// Should be the last to be allocated due to WebAssemblyFunctionInstance requering
-// a reference to the full initialized ModuleInstance
-
-pub fn allocate_web_assembly_function(function: module.Function, store: runtime.Store, addresses: List(runtime.Address), types_list: List(types.FunctionType)) -> Result(#(runtime.Store, List(runtime.Address)), String)
-{
-    let empty_module_instance = runtime.ModuleInstance
+    let thread = Thread
     (
-        types: [],
-        function_addresses: [],
-        table_addresses: [],
-        memory_addresses: [],
-        global_addresses: [],
-        element_addresses: [],
-        data_addresses: [],
-        exports: [],
+        framestate: stack.FrameState(..configuration.thread.framestate, module_instance: module_instance),
+        instructions: configuration.thread.instructions
     )
 
-    let function_address = runtime.FunctionAddress(list.length(addresses))
-    case types_list |> list.take(up_to: function.type_ + 1) |> list.last
-    {
-        Ok(function_type) ->
-        {
-            Ok(
-                #(
-                    runtime.Store(..store, functions: list.append(store.functions, [runtime.WebAssemblyFunctionInstance(type_: function_type, module_instance: empty_module_instance, code: function)])),
-                    list.append(addresses, [function_address])
-                )
-            )
-        }
-        Error(_) -> Error("gwr/execution/machine.allocate_web_assembly_function: couldn't find the type of the function among module instance's types list")
-    }
+    Configuration(store: store, thread: thread)
 }
 
 pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(runtime.Value)) -> Result(#(MachineState, List(runtime.Value)), String)
@@ -148,7 +145,7 @@ pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(run
     // We can do this because we are allocating functions in the same order as they appears in the Module's list.
     // Maybe we can try using something else e.g. a Dict
     let function_address = runtime.FunctionAddress(index)
-    
+
     use function_instance <- result.try(
         case state.configuration.store.functions |> list.take(up_to: address_to_int(function_address) + 1) |> list.last
         {
@@ -189,17 +186,17 @@ pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(run
             let new_state_stack = stack.push(push: stack.ActivationEntry(function_frame), to: state.stack)
             let new_state_configuration = Configuration(..state.configuration, thread: Thread(framestate: function_frame.framestate, instructions: function_code.body))
             let new_state = MachineState(configuration: new_state_configuration, stack: new_state_stack)
-            
+
             use after_state <- result.try(execute(new_state))
 
             let #(result_stack, result_values) = stack.pop_repeat(after_state.stack, function_frame.arity)
-            
+
             use <- bool.guard(when: option.values([stack.peek(result_stack)]) != [stack.ActivationEntry(function_frame)], return: Error("gwr/execution/machine.call: expected the last stack frame to be the calling function frame"))
-            
+
             let result_values = option.values(result_values)
             let result_arity = list.length(result_values)
             use <- bool.guard(when: result_arity != function_frame.arity, return: Error("gwr/execution/machine.call: expected " <> int.to_string(function_frame.arity) <> " values but got only " <> int.to_string(result_arity)))
-            
+
             let results = list.filter_map(result_values, fn (entry) {
                 case entry
                 {
