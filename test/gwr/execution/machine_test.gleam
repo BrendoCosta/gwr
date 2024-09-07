@@ -1,0 +1,102 @@
+import gwr/gwr
+import gwr/execution/machine
+import gwr/execution/runtime
+import gwr/execution/stack
+import gwr/execution/store
+
+import gleeunit
+import gleeunit/should
+
+pub fn main()
+{
+    gleeunit.main()
+}
+
+fn create_empty_state() -> machine.MachineState
+{
+    machine.MachineState
+    (
+        configuration: machine.Configuration
+        (
+            store: store.Store
+            (
+                datas: [],
+                elements: [],
+                functions: [],
+                globals: [],
+                memories: [],
+                tables: []
+            ),
+            thread: machine.Thread
+            (
+                framestate: stack.FrameState
+                (
+                    locals: [],
+                    module_instance: runtime.ModuleInstance
+                    (
+                        data_addresses: [],
+                        element_addresses: [],
+                        exports: [],
+                        function_addresses: [],
+                        global_addresses: [],
+                        memory_addresses: [],
+                        table_addresses: [],
+                        types : []
+                    )
+                ),
+                instructions: []
+            )
+        ),
+        stack: stack.create()
+    )
+}
+
+pub fn i32_add_test()
+{
+    let state = create_empty_state()
+    let stack = stack.push(to: state.stack, push: stack.ValueEntry(runtime.Number(4)))
+                |> stack.push(stack.ValueEntry(runtime.Number(6)))
+    let state = machine.MachineState(..state, stack: stack)
+    let state = machine.i32_add(state) |> should.be_ok
+    
+    stack.peek(state.stack)
+    |> should.be_some
+    |> should.equal(stack.ValueEntry(runtime.Number(10)))
+}
+
+pub fn i32_const_test()
+{
+    let state = machine.i32_const(create_empty_state(), 65536) |> should.be_ok
+    
+    stack.peek(state.stack)
+    |> should.be_some
+    |> should.equal(stack.ValueEntry(runtime.Number(65536)))
+}
+
+pub fn local_get_test()
+{
+    let state = create_empty_state()
+    let state = machine.MachineState
+    (
+        ..create_empty_state(),
+        configuration: machine.Configuration
+        (
+            ..state.configuration,
+            thread: machine.Thread
+            (
+                ..state.configuration.thread,
+                framestate: stack.FrameState
+                (
+                    ..state.configuration.thread.framestate,
+                    locals: [runtime.Number(2), runtime.Number(256), runtime.Number(512)] // 0, 1, 2
+                )
+            )
+        )
+    )
+
+    let state = machine.local_get(state, 1) |> should.be_ok
+    
+    stack.peek(state.stack)
+    |> should.be_some
+    |> should.equal(stack.ValueEntry(runtime.Number(256)))
+}
