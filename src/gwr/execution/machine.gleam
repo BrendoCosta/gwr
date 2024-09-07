@@ -274,7 +274,7 @@ pub fn i32_add(state: MachineState) -> Result(MachineState, String)
     )
 }
 
-pub fn i32_const(state: MachineState, value: Int)
+pub fn i32_const(state: MachineState, value: Int) -> Result(MachineState, String)
 {
     Ok(
         MachineState(
