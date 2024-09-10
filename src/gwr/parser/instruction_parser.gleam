@@ -24,18 +24,18 @@ pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_r
         case opcode
         {
             // Control Instructions
-            // https://webassembly.github.io/spec/core/binary/instruction.html#control-instructions
+            // https://webassembly.github.io/spec/core/binary/instructions.html#control-instructions
             0x00 -> Ok(#(reader, instruction.Unreachable))
             0x01 -> Ok(#(reader, instruction.NoOp))
             // Variable Instructions
-            // https://webassembly.github.io/spec/core/binary/instruction.html#variable-instructions
+            // https://webassembly.github.io/spec/core/binary/instructions.html#variable-instructions
             0x20 ->
             {
                 use #(reader, local_index) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
                 Ok(#(reader, instruction.LocalGet(index: local_index)))
             }
             // Numeric Instructions
-            // https://webassembly.github.io/spec/core/binary/instruction.html#numeric-instructions
+            // https://webassembly.github.io/spec/core/binary/instructions.html#numeric-instructions
             0x6a -> Ok(#(reader, instruction.I32Add))
             0x41 ->
             {
@@ -43,7 +43,7 @@ pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_r
                 Ok(#(reader, instruction.I32Const(value: value)))
             }
             // End
-            // https://webassembly.github.io/spec/core/binary/instruction.html#expressions
+            // https://webassembly.github.io/spec/core/binary/instructions.html#expressions
             0x0b -> Ok(#(reader, instruction.End))
             unknown -> Error("gwr/parser/instruction_parser.parse_instruction: unknown opcode \"0x" <> int.to_base16(unknown) <> "\"")
         }
