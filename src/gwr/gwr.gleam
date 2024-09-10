@@ -5,7 +5,7 @@ import gwr/binary
 import gwr/execution/machine
 import gwr/execution/runtime
 import gwr/parser/binary_parser
-import gwr/parser/binary_reader
+import gwr/parser/byte_reader
 import gwr/syntax/module
 
 pub type WebAssemblyInstance
@@ -19,7 +19,7 @@ pub type WebAssemblyInstance
 
 pub fn create(from data: BitArray) -> Result(WebAssemblyInstance, String)
 {
-    use #(_, binary) <- result.try(binary_parser.parse_binary_module(binary_reader.create(from: data)))
+    use #(_, binary) <- result.try(binary_parser.parse_binary_module(byte_reader.create(from: data)))
     use machine <- result.try(machine.initialize(binary.module))
     Ok(WebAssemblyInstance(binary: binary, machine: machine))
 }

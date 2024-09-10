@@ -1,7 +1,7 @@
 import gleam/int
 import gleam/result
 
-import gwr/parser/binary_reader
+import gwr/parser/byte_reader
 import gwr/parser/instruction_parser
 import gwr/parser/types_parser
 import gwr/parser/value_parser
@@ -13,12 +13,12 @@ pub const table_index_id    = 0x01
 pub const memory_index_id   = 0x02
 pub const global_index_id   = 0x03
 
-pub fn parse_export(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, module.Export), String)
+pub fn parse_export(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, module.Export), String)
 {
     use #(reader, export_name) <- result.try(value_parser.parse_name(from: reader))
 
     use #(reader, export) <- result.try(
-        case binary_reader.read(from: reader, take: 1)
+        case byte_reader.read(from: reader, take: 1)
         {
             Ok(#(reader, <<id>>)) if id == function_index_id ->
             {
@@ -49,14 +49,14 @@ pub fn parse_export(from reader: binary_reader.BinaryReader) -> Result(#(binary_
     Ok(#(reader, export))
 }
 
-pub fn parse_global(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, module.Global), String)
+pub fn parse_global(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, module.Global), String)
 {
     use #(reader, global_type) <- result.try(types_parser.parse_global_type(from: reader))
     use #(reader, expression) <- result.try(instruction_parser.parse_expression(from: reader))
     Ok(#(reader, module.Global(type_: global_type, init: expression)))
 }
 
-pub fn parse_memory(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, module.Memory), String)
+pub fn parse_memory(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, module.Memory), String)
 {
     use #(reader, limits) <- result.try(types_parser.parse_limits(from: reader))
     Ok(#(reader, module.Memory(type_: limits)))

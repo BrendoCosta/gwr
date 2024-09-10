@@ -12,34 +12,34 @@ import gwr/parser/instruction_parser
 import gwr/parser/module_parser
 import gwr/parser/types_parser
 import gwr/parser/value_parser
-import gwr/parser/binary_reader
+import gwr/parser/byte_reader
 import gwr/syntax/module
 
-pub fn parse_locals_declaration(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, binary.LocalsDeclaration), String)
+pub fn parse_locals_declaration(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.LocalsDeclaration), String)
 {
     use #(reader, count) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
     use #(reader, value_type) <- result.try(types_parser.parse_value_type(from: reader))
     Ok(#(reader, binary.LocalsDeclaration(count: count, type_: value_type)))
 }
 
-pub fn parse_function_code(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, binary.FunctionCode), String)
+pub fn parse_function_code(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.FunctionCode), String)
 {
     use #(reader, locals_declaration) <- result.try(convention_parser.parse_vector(from: reader, with: parse_locals_declaration))
     use #(reader, expression) <- result.try(instruction_parser.parse_expression(from: reader))
     Ok(#(reader, binary.FunctionCode(locals: locals_declaration, body: expression)))
 }
 
-pub fn parse_code(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, binary.Code), String)
+pub fn parse_code(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.Code), String)
 {
     use #(reader, size) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
     use #(reader, function_code) <- result.try(parse_function_code(from: reader))
     Ok(#(reader, binary.Code(size: size, function_code: function_code)))
 }
 
-pub fn parse_section(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, binary.Section), String)
+pub fn parse_section(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.Section), String)
 {
     use #(reader, section_type_id)  <- result.try(
-        case binary_reader.read(from: reader, take: 1)
+        case byte_reader.read(from: reader, take: 1)
         {
             Ok(#(reader, <<section_type_id>>)) -> Ok(#(reader, section_type_id))
             _ -> Error("gwr/parser/binary_parser.parse_section: can't get section type id raw data")
@@ -48,7 +48,7 @@ pub fn parse_section(from reader: binary_reader.BinaryReader) -> Result(#(binary
 
     use #(reader, section_length) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
 
-    use remaining_data <- result.try(binary_reader.get_remaining(from: reader))
+    use remaining_data <- result.try(byte_reader.get_remaining(from: reader))
     let remaining_data_length = bit_array.byte_size(remaining_data)
 
     use <- bool.guard(
@@ -57,12 +57,12 @@ pub fn parse_section(from reader: binary_reader.BinaryReader) -> Result(#(binary
     )
 
     use #(reader, decoded_dection) <- result.try(
-        case binary_reader.can_read(reader), section_type_id // the reverse order throws a syntax error xD
+        case byte_reader.can_read(reader), section_type_id // the reverse order throws a syntax error xD
         {
             True, id if id == binary.custom_section_id ->
             {
                 use #(reader, custom_section_name) <- result.try(value_parser.parse_name(from: reader))
-                use #(reader, custom_section_data) <- result.try(binary_reader.read_remaining(from: reader))
+                use #(reader, custom_section_data) <- result.try(byte_reader.read_remaining(from: reader))
                 Ok(#(reader, binary.Section(id: binary.custom_section_id, length: section_length, content: Some(binary.CustomSection(name: custom_section_name, data: Some(custom_section_data))))))
             }
             True, id if id == binary.type_section_id ->
@@ -124,16 +124,16 @@ pub fn parse_section(from reader: binary_reader.BinaryReader) -> Result(#(binary
     Ok(#(reader, decoded_dection))
 }
 
-pub fn parse_binary_module(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, binary.Binary), String)
+pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.Binary), String)
 {
-    use <- bool.guard(when: binary_reader.is_empty(reader), return: Error("gwr/parser/binary_parser.parse_binary_module: empty data"))
+    use <- bool.guard(when: byte_reader.is_empty(reader), return: Error("gwr/parser/binary_parser.parse_binary_module: empty data"))
     
     // https://webassembly.github.io/spec/core/binary/module.html#binary-module
     // 
     // The encoding of a module starts with a preamble containing a 4-byte magic number (the string '\0asm')
     // and a version field. The current version of the WebAssembly binary format is 1.
 
-    let #(reader, found_magic_number) = case binary_reader.read(from: reader, take: 4)
+    let #(reader, found_magic_number) = case byte_reader.read(from: reader, take: 4)
     {
         Ok(#(reader, <<0x00, 0x61, 0x73, 0x6d>>)) -> #(reader, True)
         Ok(#(reader, _)) -> #(reader, False)
@@ -145,7 +145,7 @@ pub fn parse_binary_module(from reader: binary_reader.BinaryReader) -> Result(#(
     // @TODO: I couldn't figure out the version number binary encoding from the spec (LE32 or LEB128 ?),
     // therefore the code below may be fixed.
     use #(reader, module_wasm_version) <- result.try(
-        case binary_reader.read(from: reader, take: 4)
+        case byte_reader.read(from: reader, take: 4)
         {
             Ok(#(reader, <<version:unsigned-little-size(32)>>)) -> Ok(#(reader, version))
             _ -> Error("gwr/parser/binary_parser.parse_binary_module: couldn't find module version")
@@ -174,7 +174,7 @@ pub fn parse_binary_module(from reader: binary_reader.BinaryReader) -> Result(#(
             {
                 use #(reader, module, function_section_type_indices) <- result.try(state)
                 
-                use <- bool.guard(when: !binary_reader.can_read(reader), return: state)
+                use <- bool.guard(when: !byte_reader.can_read(reader), return: state)
                 use #(reader, section) <- result.try(parse_section(from: reader))
                 
                 use #(module, function_section_type_indices) <- result.try(
@@ -253,5 +253,5 @@ pub fn parse_binary_module(from reader: binary_reader.BinaryReader) -> Result(#(
         )
     )
 
-    Ok(#(reader, binary.Binary(version: module_wasm_version, length: binary_reader.bytes_read(from: reader), module: filled_module)))
+    Ok(#(reader, binary.Binary(version: module_wasm_version, length: byte_reader.bytes_read(from: reader), module: filled_module)))
 }

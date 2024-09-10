@@ -3,37 +3,37 @@ import gleam/bool
 import gleam/int
 import gleam/result
 
-import gwr/parser/binary_reader
+import gwr/parser/byte_reader
 import gwr/syntax/value
 
 import gleb128
 
-pub fn parse_unsigned_leb128_integer(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, Int), String)
+pub fn parse_unsigned_leb128_integer(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, Int), String)
 {
-    use remaining_data <- result.try(binary_reader.get_remaining(from: reader))
+    use remaining_data <- result.try(byte_reader.get_remaining(from: reader))
     use #(result, bytes_read) <- result.try(gleb128.fast_decode_unsigned(remaining_data))
-    let reader = binary_reader.advance(reader, bytes_read)
+    let reader = byte_reader.advance(reader, bytes_read)
     Ok(#(reader, result))
 }
 
-pub fn parse_signed_leb128_integer(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, Int), String)
+pub fn parse_signed_leb128_integer(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, Int), String)
 {
-    use remaining_data <- result.try(binary_reader.get_remaining(from: reader))
+    use remaining_data <- result.try(byte_reader.get_remaining(from: reader))
     use #(result, bytes_read) <- result.try(gleb128.fast_decode_signed(remaining_data))
-    let reader = binary_reader.advance(reader, bytes_read)
+    let reader = byte_reader.advance(reader, bytes_read)
     Ok(#(reader, result))
 }
 
-pub fn parse_uninterpreted_leb128_integer(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, Int), String)
+pub fn parse_uninterpreted_leb128_integer(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, Int), String)
 {
     parse_signed_leb128_integer(from: reader)
 }
 
-pub fn parse_name(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, value.Name), String)
+pub fn parse_name(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, value.Name), String)
 {
     use #(reader, name_length) <- result.try(parse_unsigned_leb128_integer(from: reader))
 
-    use remaining_data <- result.try(binary_reader.get_remaining(from: reader))
+    use remaining_data <- result.try(byte_reader.get_remaining(from: reader))
     let remaining_data_length = bit_array.byte_size(remaining_data)
     
     use <- bool.guard(
@@ -42,7 +42,7 @@ pub fn parse_name(from reader: binary_reader.BinaryReader) -> Result(#(binary_re
     )
 
     use #(reader, result) <- result.try(
-        case binary_reader.read(from: reader, take: name_length)
+        case byte_reader.read(from: reader, take: name_length)
         {
             Ok(#(reader, name_data)) ->
             {

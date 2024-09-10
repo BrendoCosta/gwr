@@ -6,13 +6,13 @@ import gleam/list
 import gleam/result
 
 import gwr/syntax/instruction
-import gwr/parser/binary_reader
+import gwr/parser/byte_reader
 import gwr/parser/value_parser
 
-pub fn parse_instruction(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, instruction.Instruction), String)
+pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.Instruction), String)
 {
     use #(reader, opcode) <- result.try(
-        case binary_reader.read(from: reader, take: 1)
+        case byte_reader.read(from: reader, take: 1)
         {
             Ok(#(reader, <<opcode>>)) -> Ok(#(reader, opcode))
             Error(reason) -> Error("gwr/parser/instruction_parser.parse_instruction: couldn't read opcode: " <> reason)
@@ -52,9 +52,9 @@ pub fn parse_instruction(from reader: binary_reader.BinaryReader) -> Result(#(bi
     Ok(#(reader, instruction))
 }
 
-pub fn parse_expression(from reader: binary_reader.BinaryReader) -> Result(#(binary_reader.BinaryReader, instruction.Expression), String)
+pub fn parse_expression(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.Expression), String)
 {
-    use data <- result.try(binary_reader.get_remaining(from: reader))
+    use data <- result.try(byte_reader.get_remaining(from: reader))
     let data_length = bit_array.byte_size(data)
 
     use #(reader, expression) <- result.try(
@@ -69,7 +69,7 @@ pub fn parse_expression(from reader: binary_reader.BinaryReader) -> Result(#(bin
                 use <- bool.guard(when: list.last(current_expression) == Ok(instruction.End), return: state)
                 
                 // If we reached the end of the data then the last instruction there must be an End instruction; otherwise we got an error 
-                use <- bool.guard(when: !binary_reader.can_read(reader) && list.last(current_expression) != Ok(instruction.End), return: Error("gwr/parser/instruction_parser.parse_expression: an expression must terminate with a End instruction"))
+                use <- bool.guard(when: !byte_reader.can_read(reader) && list.last(current_expression) != Ok(instruction.End), return: Error("gwr/parser/instruction_parser.parse_expression: an expression must terminate with a End instruction"))
 
                 use #(reader, instruction) <- result.try(parse_instruction(from: reader))
 
