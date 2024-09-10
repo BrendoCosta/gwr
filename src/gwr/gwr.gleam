@@ -36,7 +36,7 @@ pub fn call(instance: WebAssemblyInstance, name: String, arguments: List(runtime
         })
         {
             Ok(module.Export(name: _, descriptor: module.FunctionExport(index))) -> Ok(index)
-            _ -> Error("gwr/execution/instance.call: couldn't find an exported function with name \"" <> name <>"\" in the given module")
+            _ -> Error("gwr/gwr.call: couldn't find an exported function with name \"" <> name <>"\" in the given module")
         }
     )
 
