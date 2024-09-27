@@ -1,4 +1,13 @@
 import gwr/syntax/index
+import gwr/syntax/types
+
+/// https://webassembly.github.io/spec/core/syntax/instructions.html#control-instructions
+pub type BlockType
+{
+    EmptyBlock
+    TypeIndexBlock(index: index.TypeIndex)
+    ValueTypeBlock(type_: types.ValueType)
+}
 
 pub type Instruction
 {

@@ -7,6 +7,7 @@ import gleam/result
 
 import gwr/syntax/instruction
 import gwr/parser/byte_reader
+import gwr/parser/types_parser
 import gwr/parser/value_parser
 
 pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.Instruction), String)
@@ -79,4 +80,23 @@ pub fn parse_expression(from reader: byte_reader.ByteReader) -> Result(#(byte_re
     )
 
     Ok(#(reader, expression))
+}
+
+pub fn parse_block_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.BlockType), String)
+{
+    //use #(reader, flag) <- result.try(byte_reader.read(from: reader, take: 1))
+    use data <- result.try(byte_reader.get_remaining(from: reader))
+    case data
+    {
+        <<0x40>> -> Ok(#(byte_reader.advance(from: reader, up_to: 1), instruction.EmptyBlock))
+        _ -> case types_parser.parse_value_type(from: reader)
+        {
+            Ok(#(reader, value_type)) -> Ok(#(reader, instruction.ValueTypeBlock(type_: value_type)))
+            _ ->
+            {
+                use #(reader, index) <- result.try(value_parser.parse_signed_leb128_integer(from: reader))
+                Ok(#(reader, instruction.TypeIndexBlock(index: index)))
+            }
+        }
+    }
 }
