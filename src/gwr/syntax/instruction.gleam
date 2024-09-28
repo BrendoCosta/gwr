@@ -1,3 +1,5 @@
+import gleam/option.{type Option}
+
 import gwr/syntax/index
 import gwr/syntax/types
 
@@ -14,6 +16,10 @@ pub type Instruction
     /// https://webassembly.github.io/spec/core/binary/instructions.html#control-instructions
     Unreachable
     NoOp
+    Block(block_type: BlockType, instructions: List(Instruction))
+    Loop(block_type: BlockType, instructions: List(Instruction))
+    If(block_type: BlockType, instructions: List(Instruction), else_: Option(Instruction))
+    Else(instructions: Expression)
     /// https://webassembly.github.io/spec/core/binary/instructions.html#variable-instructions
     LocalGet(index: index.LocalIndex)
     /// https://webassembly.github.io/spec/core/binary/instructions.html#numeric-instructions

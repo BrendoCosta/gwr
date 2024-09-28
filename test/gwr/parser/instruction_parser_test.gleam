@@ -1,3 +1,4 @@
+import gleam/option
 import gwr/syntax/types
 import gwr/parser/instruction_parser
 import gwr/parser/byte_reader
@@ -50,7 +51,93 @@ pub fn parse_block_type___type_index_block___test()
     )
 }
 
-pub fn i32_const_test()
+pub fn parse_instruction___block___test()
+{
+    let reader = byte_reader.create(from: <<0x02, 0x01, 0x41, 0x80, 0x80, 0xc0, 0x00, 0x41, 0x2, 0x0b>>)
+    instruction_parser.parse_instruction(reader)
+    |> should.be_ok
+    |> should.equal(
+        #(
+            byte_reader.ByteReader(..reader, current_position: 10),
+            instruction.Block(
+                block_type: instruction.TypeIndexBlock(index: 1),
+                instructions: [
+                    instruction.I32Const(value: 1048576),
+                    instruction.I32Const(value: 2),
+                    instruction.End
+                ]
+            )
+        )
+    )
+}
+
+pub fn parse_instruction___loop___test()
+{
+    let reader = byte_reader.create(from: <<0x03, 0x7f, 0x41, 0x08, 0x41, 0x80, 0x80, 0x04, 0x0b>>)
+    instruction_parser.parse_instruction(reader)
+    |> should.be_ok
+    |> should.equal(
+        #(
+            byte_reader.ByteReader(..reader, current_position: 9),
+            instruction.Loop(
+                block_type: instruction.ValueTypeBlock(type_: types.Number(types.Integer32)),
+                instructions: [
+                    instruction.I32Const(value: 8),
+                    instruction.I32Const(value: 65536),
+                    instruction.End
+                ]
+            )
+        )
+    )
+}
+
+pub fn parse_instruction___if___test()
+{
+    let reader = byte_reader.create(from: <<0x04, 0x7f, 0x41, 0x80, 0x80, 0x04, 0x0b>>)
+    instruction_parser.parse_instruction(reader)
+    |> should.be_ok
+    |> should.equal(
+        #(
+            byte_reader.ByteReader(..reader, current_position: 7),
+            instruction.If(
+                block_type: instruction.ValueTypeBlock(type_: types.Number(types.Integer32)),
+                instructions: [
+                    instruction.I32Const(value: 65536),
+                    instruction.End
+                ],
+                else_: option.None
+            )
+        )
+    )
+}
+
+pub fn parse_instruction___if_else___test()
+{
+    let reader = byte_reader.create(from: <<0x04, 0x7f, 0x41, 0x80, 0x80, 0x04, 0x05, 0x41, 0x02, 0x0b>>)
+    instruction_parser.parse_instruction(reader)
+    |> should.be_ok
+    |> should.equal(
+        #(
+            byte_reader.ByteReader(..reader, current_position: 10),
+            instruction.If(
+                block_type: instruction.ValueTypeBlock(type_: types.Number(types.Integer32)),
+                instructions: [
+                    instruction.I32Const(value: 65536),
+                ],
+                else_: option.Some(
+                    instruction.Else(
+                        instructions: [
+                            instruction.I32Const(value: 2),
+                            instruction.End
+                        ]
+                    )
+                )
+            )
+        )
+    )
+}
+
+pub fn parse_instruction___i32_const___test()
 {
     let reader = byte_reader.create(from: <<0x41, 0x80, 0x80, 0xc0, 0x00>>)
     instruction_parser.parse_instruction(reader)
@@ -63,7 +150,7 @@ pub fn i32_const_test()
     )
 }
 
-pub fn local_get_test()
+pub fn parse_instruction___local_get___test()
 {
     let reader = byte_reader.create(from: <<0x20, 0xff, 0x01>>)
     instruction_parser.parse_instruction(reader)

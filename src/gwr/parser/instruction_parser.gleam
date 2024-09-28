@@ -1,3 +1,4 @@
+import gleam/option
 import gleam/bit_array
 import gleam/bool
 import gleam/int
@@ -28,6 +29,45 @@ pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_r
             // https://webassembly.github.io/spec/core/binary/instructions.html#control-instructions
             0x00 -> Ok(#(reader, instruction.Unreachable))
             0x01 -> Ok(#(reader, instruction.NoOp))
+            0x02 ->
+            {
+                use #(reader, block_type) <- result.try(parse_block_type(from: reader))
+                use #(reader, expression) <- result.try(parse_expression(from: reader))
+                Ok(#(reader, instruction.Block(block_type: block_type, instructions: expression)))
+            }
+            0x03 ->
+            {
+                use #(reader, block_type) <- result.try(parse_block_type(from: reader))
+                use #(reader, expression) <- result.try(parse_expression(from: reader))
+                Ok(#(reader, instruction.Loop(block_type: block_type, instructions: expression)))
+            }
+            0x04 ->
+            {
+                use #(reader, block_type) <- result.try(parse_block_type(from: reader))
+                use #(reader, body) <- result.try(
+                    parse_instructions_until(
+                        from: reader,
+                        with: fn (inst) {
+                        case inst
+                        {
+                            instruction.End -> True
+                            instruction.Else(_) -> True
+                            _ -> False
+                        }
+                    })
+                )
+                case list.last(body)
+                {
+                    Ok(instruction.End) -> Ok(#(reader, instruction.If(block_type: block_type, instructions: body, else_: option.None)))
+                    Ok(instruction.Else(_) as els) -> Ok(#(reader, instruction.If(block_type: block_type, instructions: list.take(from: body, up_to: list.length(body) - 1), else_: option.Some(els))))
+                    _ -> Error("gwr/parser/instruction_parser.parse_instruction: expected the If instruction's block to end either with an End instruction or an Else instruction")
+                }
+            }
+            0x05 ->
+            {
+                use #(reader, expression) <- result.try(parse_expression(from: reader))
+                Ok(#(reader, instruction.Else(instructions: expression)))
+            }
             // Variable Instructions
             // https://webassembly.github.io/spec/core/binary/instructions.html#variable-instructions
             0x20 ->
@@ -80,6 +120,28 @@ pub fn parse_expression(from reader: byte_reader.ByteReader) -> Result(#(byte_re
     )
 
     Ok(#(reader, expression))
+}
+
+pub fn do_parse_instructions_until(reader: byte_reader.ByteReader, predicate: fn (instruction.Instruction) -> Bool, accumulator: List(instruction.Instruction)) -> Result(#(byte_reader.ByteReader, List(instruction.Instruction)), String)
+{
+    case byte_reader.can_read(reader)
+    {
+        True ->
+        {
+            use #(reader, instruction) <- result.try(parse_instruction(from: reader))
+            case predicate(instruction)
+            {
+                True -> Ok(#(reader, list.append(accumulator, [instruction])))
+                False -> do_parse_instructions_until(reader, predicate, list.append(accumulator, [instruction]))
+            }
+        }
+        False -> Error("gwr/parser/instruction_parser.do_parse_instructions_until: reached the end of the data yet couldn't find the instruction matching the given predicate")
+    }
+}
+
+pub fn parse_instructions_until(from reader: byte_reader.ByteReader, with predicate: fn (instruction.Instruction) -> Bool) -> Result(#(byte_reader.ByteReader, List(instruction.Instruction)), String)
+{
+    do_parse_instructions_until(reader, predicate, [])
 }
 
 pub fn parse_block_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.BlockType), String)
