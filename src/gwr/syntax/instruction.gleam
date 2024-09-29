@@ -3,6 +3,8 @@ import gleam/option.{type Option}
 import gwr/syntax/index
 import gwr/syntax/types
 
+import ieee_float
+
 /// https://webassembly.github.io/spec/core/syntax/instructions.html#control-instructions
 pub type BlockType
 {
@@ -33,8 +35,8 @@ pub type Instruction
     
     I32Const(value: Int)
     I64Const(value: Int)
-    F32Const(value: Float)
-    F64Const(value: Float)
+    F32Const(value: ieee_float.IEEEFloat)
+    F64Const(value: ieee_float.IEEEFloat)
     
     I32Eqz
     I32Eq
@@ -62,12 +64,14 @@ pub type Instruction
 
     F32Eq
     F32Ne
+    F32Lt
     F32Gt
     F32Le
     F32Ge
 
     F64Eq
     F64Ne
+    F64Lt
     F64Gt
     F64Le
     F64Ge
