@@ -13,6 +13,8 @@ import gwr/syntax/instruction
 import gwr/syntax/module
 import gwr/syntax/types
 
+import ieee_float
+
 /// A configuration consists of the current store and an executing thread.
 ///
 /// https://webassembly.github.io/spec/core/exec/runtime.html#configurations
@@ -223,9 +225,13 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                 use current_state <- result.try(current_state)
                 case instruction
                 {
+                    instruction.I32Const(value) -> i32_const(current_state, value)
+                    instruction.I64Const(value) -> i64_const(current_state, value)
+                    instruction.F32Const(value) -> f32_const(current_state, value)
+                    instruction.F64Const(value) -> f64_const(current_state, value)
+
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
-                    instruction.I32Const(value) -> i32_const(current_state, value)
                     _ -> Ok(current_state)
                 }
             }
@@ -254,6 +260,32 @@ pub fn address_to_string(address: runtime.Address) -> String
     int.to_string(address_to_int(address))
 }
 
+pub fn i32_const(state: MachineState, value: Int) -> Result(MachineState, String)
+{
+    let stack = stack.push(state.stack, stack.ValueEntry(runtime.Integer32(value)))
+    Ok(MachineState(..state, stack: stack))
+}
+
+pub fn i64_const(state: MachineState, value: Int) -> Result(MachineState, String)
+{
+    let stack = stack.push(state.stack, stack.ValueEntry(runtime.Integer64(value)))
+    Ok(MachineState(..state, stack: stack))
+}
+
+pub fn f32_const(state: MachineState, value: ieee_float.IEEEFloat) -> Result(MachineState, String)
+{
+    use built_in_float <- result.try(runtime.ieee_float_to_builtin_float(value))
+    let stack = stack.push(state.stack, stack.ValueEntry(runtime.Float32(built_in_float)))
+    Ok(MachineState(..state, stack: stack))
+}
+
+pub fn f64_const(state: MachineState, value: ieee_float.IEEEFloat) -> Result(MachineState, String)
+{
+    use built_in_float <- result.try(runtime.ieee_float_to_builtin_float(value))
+    let stack = stack.push(state.stack, stack.ValueEntry(runtime.Float64(built_in_float)))
+    Ok(MachineState(..state, stack: stack))
+}
+
 pub fn i32_add(state: MachineState) -> Result(MachineState, String)
 {
     let #(stack, values) = stack.pop_repeat(state.stack, 2)
@@ -266,12 +298,6 @@ pub fn i32_add(state: MachineState) -> Result(MachineState, String)
     )
 
     let stack = stack.push(stack, stack.ValueEntry(runtime.Integer32(result)))
-    Ok(MachineState(..state, stack: stack))
-}
-
-pub fn i32_const(state: MachineState, value: Int) -> Result(MachineState, String)
-{
-    let stack = stack.push(state.stack, stack.ValueEntry(runtime.Integer32(value)))
     Ok(MachineState(..state, stack: stack))
 }
 

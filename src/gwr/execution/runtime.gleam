@@ -1,8 +1,12 @@
 import gleam/dynamic
+import gleam/order
+import gleam/result
 
 import gwr/syntax/module
 import gwr/syntax/types
 import gwr/syntax/value
+
+import ieee_float
 
 pub const memory_page_size = 65_536
 
@@ -158,4 +162,26 @@ pub type ExternalValue
     Table(Address)
     Memory(Address)
     Global(Address)
+}
+
+pub fn ieee_float_to_builtin_float(value: ieee_float.IEEEFloat) -> Result(FloatValue, String)
+{
+    case ieee_float.is_finite(value)
+    {
+        True ->
+        {
+            use fin <- result.try(result.replace_error(ieee_float.to_finite(value), "gwr/execution/runtime.ieee_float_to_builtin_float: error converting value to finite"))
+            Ok(Finite(fin))
+        }
+        False -> case ieee_float.is_nan(value)
+        {
+            True -> Ok(NaN)
+            False -> case ieee_float.compare(value, ieee_float.positive_infinity())
+            {
+                Ok(order.Eq) -> Ok(Infinite(Positive))
+                Ok(order.Lt) -> Ok(Infinite(Negative))
+                _ -> Error("gwr/execution/runtime.ieee_float_to_builtin_float: unknown error")
+            }
+        }
+    }
 }
