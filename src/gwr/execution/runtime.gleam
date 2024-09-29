@@ -13,10 +13,26 @@ pub type ReferenceValueType
     ToExternAddress(Address)
 }
 
+pub type FloatNumber
+{
+    Finite(value: Float)
+    Infinite(sign: Sign)
+    NaN
+}
+
+pub type Sign
+{
+    Positive
+    Negative
+}
+
 /// https://webassembly.github.io/spec/core/exec/runtime.html#values
 pub type Value
 {
-    Number(Int) // @TODO: replace with Number(IntegerNumber(Int)) and add Number(FloatNumber(Float))
+    Integer32(value: Int)
+    Integer64(value: Int)
+    Float32(value: FloatNumber)
+    Float64(value: FloatNumber)
     Vector(Int)
     Reference(ReferenceValueType)
 }

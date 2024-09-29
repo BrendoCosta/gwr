@@ -14,6 +14,6 @@ pub fn sum_test()
 {
     let module_data = simplifile.read_bits(from: "./test/assets/sum.wasm") |> should.be_ok
     let instance = gwr.create(from: module_data) |> should.be_ok
-    let #(_, result) = gwr.call(instance, "sum", [runtime.Number(4), runtime.Number(2)]) |> should.be_ok
-    result |> should.equal([runtime.Number(6)])
+    let #(_, result) = gwr.call(instance, "sum", [runtime.Integer32(4), runtime.Integer32(2)]) |> should.be_ok
+    result |> should.equal([runtime.Integer32(6)])
 }

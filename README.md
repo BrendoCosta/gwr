@@ -86,8 +86,8 @@ pub fn main()
 {
     let assert Ok(module_data) = simplifile.read_bits(from: "sum.wasm")
     let assert Ok(instance) = gwr.create(from: module_data)
-    let assert Ok(#(instance, result)) = gwr.call(instance, "sum", [runtime.Number(4), runtime.Number(2)])
-    let assert [runtime.Number(6)] = result
+    let assert Ok(#(instance, result)) = gwr.call(instance, "sum", [runtime.Integer32(4), runtime.Integer32(2)])
+    let assert [runtime.Integer32(6)] = result
 }
 ```
 

@@ -54,14 +54,14 @@ fn create_empty_state() -> machine.MachineState
 pub fn i32_add_test()
 {
     let state = create_empty_state()
-    let stack = stack.push(to: state.stack, push: stack.ValueEntry(runtime.Number(4)))
-                |> stack.push(stack.ValueEntry(runtime.Number(6)))
+    let stack = stack.push(to: state.stack, push: stack.ValueEntry(runtime.Integer32(4)))
+                |> stack.push(stack.ValueEntry(runtime.Integer32(6)))
     let state = machine.MachineState(..state, stack: stack)
     let state = machine.i32_add(state) |> should.be_ok
     
     stack.peek(state.stack)
     |> should.be_some
-    |> should.equal(stack.ValueEntry(runtime.Number(10)))
+    |> should.equal(stack.ValueEntry(runtime.Integer32(10)))
 }
 
 pub fn i32_const_test()
@@ -70,7 +70,7 @@ pub fn i32_const_test()
     
     stack.peek(state.stack)
     |> should.be_some
-    |> should.equal(stack.ValueEntry(runtime.Number(65536)))
+    |> should.equal(stack.ValueEntry(runtime.Integer32(65536)))
 }
 
 pub fn local_get_test()
@@ -88,7 +88,7 @@ pub fn local_get_test()
                 framestate: stack.FrameState
                 (
                     ..state.configuration.thread.framestate,
-                    locals: [runtime.Number(2), runtime.Number(256), runtime.Number(512)] // 0, 1, 2
+                    locals: [runtime.Integer32(2), runtime.Integer32(256), runtime.Integer32(512)] // 0, 1, 2
                 )
             )
         )
@@ -98,5 +98,5 @@ pub fn local_get_test()
     
     stack.peek(state.stack)
     |> should.be_some
-    |> should.equal(stack.ValueEntry(runtime.Number(256)))
+    |> should.equal(stack.ValueEntry(runtime.Integer32(256)))
 }

@@ -2,6 +2,7 @@ import gleam/bool
 import gleam/int
 import gleam/list
 import gleam/result
+import gleam/string
 import gleam/option
 
 import gwr/execution/runtime
@@ -164,10 +165,10 @@ pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(run
                 with: fn (function_locals, local) {
                 let value = case local
                 {
-                    types.Number(types.Integer32) -> runtime.Number(runtime.number_value_default_value)
-                    types.Number(types.Integer64) -> runtime.Number(runtime.number_value_default_value)
-                    types.Number(types.Float32) -> runtime.Number(runtime.number_value_default_value)
-                    types.Number(types.Float64) -> runtime.Number(runtime.number_value_default_value)
+                    types.Number(types.Integer32) -> runtime.Integer32(runtime.number_value_default_value)
+                    types.Number(types.Integer64) -> runtime.Integer64(runtime.number_value_default_value)
+                    types.Number(types.Float32) -> runtime.Float32(runtime.Finite(int.to_float(runtime.number_value_default_value)))
+                    types.Number(types.Float64) -> runtime.Float64(runtime.Finite(int.to_float(runtime.number_value_default_value)))
                     types.Vector(types.Vector128) -> runtime.Vector(runtime.vector_value_default_value)
                     types.Reference(types.FunctionReference) -> runtime.Reference(runtime.Null)
                     types.Reference(types.ExternReference) -> runtime.Reference(runtime.Null)
@@ -259,29 +260,19 @@ pub fn i32_add(state: MachineState) -> Result(MachineState, String)
     use result <- result.try(
         case option.values(values)
         {
-            [stack.ValueEntry(runtime.Number(a)), stack.ValueEntry(runtime.Number(b))] -> Ok(a + b)
-            [stack.LabelEntry(_), _] | [_, stack.LabelEntry(_)] -> Error("gwr/execution/machine.i32_add: expected a value entry but got a label entry")
-            [stack.ActivationEntry(_), _] | [_, stack.ActivationEntry(_)] -> Error("gwr/execution/machine.i32_add: expected a value entry but got an activation entry")
-            [] -> Error("gwr/execution/machine.i32_add: empty operands")
-            _ -> Error("gwr/execution/machine.i32_add: unknown error")
+            [stack.ValueEntry(runtime.Integer32(value: a)), stack.ValueEntry(runtime.Integer32(value: b))] -> Ok(a + b)
+            anything_else -> Error("gwr/execution/machine.i32_add: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
         }
     )
-    Ok(
-        MachineState(
-            ..state,
-            stack: stack.push(stack, stack.ValueEntry(runtime.Number(result)))
-        )
-    )
+
+    let stack = stack.push(stack, stack.ValueEntry(runtime.Integer32(result)))
+    Ok(MachineState(..state, stack: stack))
 }
 
 pub fn i32_const(state: MachineState, value: Int) -> Result(MachineState, String)
 {
-    Ok(
-        MachineState(
-            ..state,
-            stack: stack.push(state.stack, stack.ValueEntry(runtime.Number(value)))
-        )
-    )
+    let stack = stack.push(state.stack, stack.ValueEntry(runtime.Integer32(value)))
+    Ok(MachineState(..state, stack: stack))
 }
 
 pub fn local_get(state: MachineState, index: index.LocalIndex) -> Result(MachineState, String)
@@ -293,10 +284,7 @@ pub fn local_get(state: MachineState, index: index.LocalIndex) -> Result(Machine
             Error(_) -> Error("gwr/execution/machine.local_get: couldn't get the local with index " <> int.to_string(index))
         }
     )
-    Ok(
-        MachineState(
-            ..state,
-            stack: stack.push(state.stack, stack.ValueEntry(local))
-        )
-    )
+    
+    let stack = stack.push(state.stack, stack.ValueEntry(local))
+    Ok(MachineState(..state, stack: stack))
 }
