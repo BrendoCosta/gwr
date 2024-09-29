@@ -1,4 +1,5 @@
-import gwr/gwr
+import gleam/list
+
 import gwr/execution/machine
 import gwr/execution/runtime
 import gwr/execution/stack
@@ -48,6 +49,29 @@ fn create_empty_state() -> machine.MachineState
             )
         ),
         stack: stack.create()
+    )
+}
+
+pub fn i32_eqz_test()
+{
+    [
+        #(runtime.Integer32(0), runtime.true_),
+        #(runtime.Integer32(1), runtime.false_),
+        #(runtime.Integer32(-1), runtime.false_),
+        #(runtime.Integer32(65536), runtime.false_)
+    ]
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: stack.ValueEntry(test_case.0))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.i32_eqz(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
     )
 }
 

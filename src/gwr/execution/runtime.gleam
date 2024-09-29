@@ -9,6 +9,8 @@ import gwr/syntax/value
 import ieee_float
 
 pub const memory_page_size = 65_536
+pub const true_ = Integer32(1)
+pub const false_ = Integer32(0)
 
 pub type ReferenceValueType
 {

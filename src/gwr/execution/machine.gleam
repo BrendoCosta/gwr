@@ -229,6 +229,7 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.I64Const(value) -> i64_const(current_state, value)
                     instruction.F32Const(value) -> f32_const(current_state, value)
                     instruction.F64Const(value) -> f64_const(current_state, value)
+                    instruction.I32Eqz -> i32_eqz(current_state)
 
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
@@ -283,6 +284,21 @@ pub fn f64_const(state: MachineState, value: ieee_float.IEEEFloat) -> Result(Mac
 {
     use built_in_float <- result.try(runtime.ieee_float_to_builtin_float(value))
     let stack = stack.push(state.stack, stack.ValueEntry(runtime.Float64(built_in_float)))
+    Ok(MachineState(..state, stack: stack))
+}
+
+pub fn i32_eqz(state: MachineState) -> Result(MachineState, String)
+{
+    let #(stack, entry) = stack.pop(state.stack)
+    use result <- result.try(
+        case entry
+        {
+            option.Some(stack.ValueEntry(runtime.Integer32(value: 0))) -> Ok(stack.ValueEntry(runtime.true_))
+            option.Some(stack.ValueEntry(runtime.Integer32(value: _))) -> Ok(stack.ValueEntry(runtime.false_))
+            anything_else -> Error("gwr/execution/machine.i32_eqz: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+        }
+    )
+    let stack = stack.push(state.stack, result)
     Ok(MachineState(..state, stack: stack))
 }
 
