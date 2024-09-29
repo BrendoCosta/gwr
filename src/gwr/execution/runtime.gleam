@@ -13,7 +13,7 @@ pub type ReferenceValueType
     ToExternAddress(Address)
 }
 
-pub type FloatNumber
+pub type FloatValue
 {
     Finite(value: Float)
     Infinite(sign: Sign)
@@ -31,8 +31,8 @@ pub type Value
 {
     Integer32(value: Int)
     Integer64(value: Int)
-    Float32(value: FloatNumber)
-    Float64(value: FloatNumber)
+    Float32(value: FloatValue)
+    Float64(value: FloatValue)
     Vector(Int)
     Reference(ReferenceValueType)
 }
