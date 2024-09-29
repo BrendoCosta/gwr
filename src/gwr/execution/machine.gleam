@@ -170,8 +170,8 @@ pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(run
                     types.Number(types.Float32) -> runtime.Float32(runtime.Finite(int.to_float(runtime.number_value_default_value)))
                     types.Number(types.Float64) -> runtime.Float64(runtime.Finite(int.to_float(runtime.number_value_default_value)))
                     types.Vector(types.Vector128) -> runtime.Vector(runtime.vector_value_default_value)
-                    types.Reference(types.FunctionReference) -> runtime.Reference(runtime.Null)
-                    types.Reference(types.ExternReference) -> runtime.Reference(runtime.Null)
+                    types.Reference(types.FunctionReference) -> runtime.Reference(runtime.NullReference)
+                    types.Reference(types.ExternReference) -> runtime.Reference(runtime.NullReference)
                 }
                 list.append(function_locals, [value])
             })
@@ -284,7 +284,7 @@ pub fn local_get(state: MachineState, index: index.LocalIndex) -> Result(Machine
             Error(_) -> Error("gwr/execution/machine.local_get: couldn't get the local with index " <> int.to_string(index))
         }
     )
-    
+
     let stack = stack.push(state.stack, stack.ValueEntry(local))
     Ok(MachineState(..state, stack: stack))
 }

@@ -8,7 +8,7 @@ pub const memory_page_size = 65_536
 
 pub type ReferenceValueType
 {
-    Null
+    NullReference
     ToFunctionAddress(Address)
     ToExternAddress(Address)
 }
@@ -39,7 +39,7 @@ pub type Value
 
 pub const number_value_default_value = 0
 pub const vector_value_default_value = 0
-pub const reference_value_default_value = Null
+pub const reference_value_default_value = NullReference
 
 /// A result is the outcome of a computation. It is either a sequence of values or a trap.
 ///
