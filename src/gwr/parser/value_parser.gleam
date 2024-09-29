@@ -7,6 +7,7 @@ import gwr/parser/byte_reader
 import gwr/syntax/value
 
 import gleb128
+import ieee_float
 
 pub fn parse_unsigned_leb128_integer(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, Int), String)
 {
@@ -27,6 +28,18 @@ pub fn parse_signed_leb128_integer(from reader: byte_reader.ByteReader) -> Resul
 pub fn parse_uninterpreted_leb128_integer(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, Int), String)
 {
     parse_signed_leb128_integer(from: reader)
+}
+
+pub fn parse_le32_float(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, ieee_float.IEEEFloat), String)
+{
+    use #(reader, data) <- result.try(byte_reader.read(from: reader, take: 4))
+    Ok(#(reader, ieee_float.from_bytes_32_le(data)))
+}
+
+pub fn parse_le64_float(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, ieee_float.IEEEFloat), String)
+{
+    use #(reader, data) <- result.try(byte_reader.read(from: reader, take: 8))
+    Ok(#(reader, ieee_float.from_bytes_64_le(data)))
 }
 
 pub fn parse_name(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, value.Name), String)
