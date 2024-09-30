@@ -405,6 +405,30 @@ pub fn i32_gt_u(state: MachineState) -> Result(MachineState, String)
     })
 }
 
+pub fn i32_le_s(state: MachineState) -> Result(MachineState, String)
+{
+    i32_comparison(state, fn (a, b) {
+        use #(a, b) <- result.try(unwrap_integers(a, b, int32.from_int))
+        case int32.compare(a, b)
+        {
+            order.Lt | order.Eq -> Ok(True)
+            _ -> Ok(False)
+        }
+    })
+}
+
+pub fn i32_le_u(state: MachineState) -> Result(MachineState, String)
+{
+    i32_comparison(state, fn (a, b) {
+        use #(a, b) <- result.try(unwrap_integers(a, b, uint32.from_int))
+        case uint32.compare(a, b)
+        {
+            order.Lt | order.Eq -> Ok(True)
+            _ -> Ok(False)
+        }
+    })
+}
+
 pub fn i32_add(state: MachineState) -> Result(MachineState, String)
 {
     let #(stack, values) = stack.pop_repeat(state.stack, 2)
