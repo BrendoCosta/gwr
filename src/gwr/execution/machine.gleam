@@ -231,6 +231,7 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.F64Const(value) -> f64_const(current_state, value)
                     instruction.I32Eqz -> i32_eqz(current_state)
                     instruction.I32Eq -> i32_eq(current_state)
+                    instruction.I32Ne -> i32_ne(current_state)
 
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
@@ -303,7 +304,7 @@ pub fn i32_eqz(state: MachineState) -> Result(MachineState, String)
     Ok(MachineState(..state, stack: stack))
 }
 
-pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
+pub fn i32_comparison(state: MachineState, comparison_function: fn (Int, Int) -> Bool) -> Result(MachineState, String)
 {
     let #(stack, values) = stack.pop_repeat(state.stack, 2)
     use result <- result.try(
@@ -311,7 +312,7 @@ pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
         {
             [stack.ValueEntry(runtime.Integer32(value: a)), stack.ValueEntry(runtime.Integer32(value: b))] ->
             {
-                case a == b
+                case comparison_function(a, b)
                 {
                     True -> Ok(runtime.true_)
                     False -> Ok(runtime.false_)
@@ -323,6 +324,16 @@ pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
 
     let stack = stack.push(stack, [stack.ValueEntry(result)])
     Ok(MachineState(..state, stack: stack))
+}
+
+pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
+{
+    i32_comparison(state, fn (a, b) { a == b})
+}
+
+pub fn i32_ne(state: MachineState) -> Result(MachineState, String)
+{
+    i32_comparison(state, fn (a, b) { a != b})
 }
 
 pub fn i32_add(state: MachineState) -> Result(MachineState, String)

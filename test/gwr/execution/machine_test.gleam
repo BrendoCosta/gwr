@@ -99,6 +99,30 @@ pub fn i32_eq_test()
     )
 }
 
+pub fn i32_ne_test()
+{
+    [
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.false_),
+        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(-1)], runtime.true_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.false_)
+    ]
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.i32_ne(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
 pub fn i32_add_test()
 {
     let state = create_empty_state()
