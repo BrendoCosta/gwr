@@ -151,9 +151,9 @@ pub fn i32_lt_s___error___test()
 {
     [
         #([runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: unexpected arguments \"[ValueEntry(Integer32(0))]\""),
-        #([runtime.Integer32(0x80000000), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.i32_lt_s: overflow"),
-        #([runtime.Integer32(0x80000001 * -1), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.i32_lt_s: overflow"),
-        #([runtime.Integer32(65536), runtime.Integer32(0x80000000)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.i32_lt_s: overflow"),
+        #([runtime.Integer32(0x80000000), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
+        #([runtime.Integer32(0x80000001 * -1), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
+        #([runtime.Integer32(65536), runtime.Integer32(0x80000000)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
     ]
     |> list.each(
         fn (test_case)
@@ -196,9 +196,9 @@ pub fn i32_lt_u___error___test()
 {
     [
         #([runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: unexpected arguments \"[ValueEntry(Integer32(0))]\""),
-        #([runtime.Integer32(0x100000000), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.i32_lt_u: overflow"),
-        #([runtime.Integer32(-1), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.i32_lt_u: overflow"),
-        #([runtime.Integer32(65536), runtime.Integer32(0x100000000)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.i32_lt_u: overflow"),
+        #([runtime.Integer32(0x100000000), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
+        #([runtime.Integer32(-1), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
+        #([runtime.Integer32(65536), runtime.Integer32(0x100000000)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
     ]
     |> list.each(
         fn (test_case)

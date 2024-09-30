@@ -332,6 +332,21 @@ pub fn i32_comparison(state: MachineState, comparison_function: fn (Int, Int) ->
     Ok(MachineState(..state, stack: stack))
 }
 
+fn unwrap_integers(op1: a, op2: a, func: fn (a) -> Result(b, c))
+{
+    use #(op1, op2) <- result.try(
+        result.replace_error(
+            {
+                use a <- result.try(func(op1))
+                use b <- result.try(func(op2))
+                Ok(#(a, b))
+            },
+            "gwr/execution/machine.unwrap_integers: overflow"
+        )
+    )
+    Ok(#(op1, op2))
+}
+
 pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
 {
     i32_comparison(state, fn (a, b) { Ok(a == b) })
@@ -345,16 +360,7 @@ pub fn i32_ne(state: MachineState) -> Result(MachineState, String)
 pub fn i32_lt_s(state: MachineState) -> Result(MachineState, String)
 {
     i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(
-            result.replace_error(
-                {
-                    use a <- result.try(int32.from_int(a))
-                    use b <- result.try(int32.from_int(b))
-                    Ok(#(a, b))
-                },
-                "gwr/execution/machine.i32_lt_s: overflow"
-            )
-        )
+        use #(a, b) <- result.try(unwrap_integers(a, b, int32.from_int))
         case int32.compare(a, b)
         {
             order.Lt -> Ok(True)
@@ -366,16 +372,7 @@ pub fn i32_lt_s(state: MachineState) -> Result(MachineState, String)
 pub fn i32_lt_u(state: MachineState) -> Result(MachineState, String)
 {
     i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(
-            result.replace_error(
-                {
-                    use a <- result.try(uint32.from_int(a))
-                    use b <- result.try(uint32.from_int(b))
-                    Ok(#(a, b))
-                },
-                "gwr/execution/machine.i32_lt_u: overflow"
-            )
-        )
+        use #(a, b) <- result.try(unwrap_integers(a, b, uint32.from_int))
         case uint32.compare(a, b)
         {
             order.Lt -> Ok(True)
@@ -387,16 +384,7 @@ pub fn i32_lt_u(state: MachineState) -> Result(MachineState, String)
 pub fn i32_gt_s(state: MachineState) -> Result(MachineState, String)
 {
     i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(
-            result.replace_error(
-                {
-                    use a <- result.try(int32.from_int(a))
-                    use b <- result.try(int32.from_int(b))
-                    Ok(#(a, b))
-                },
-                "gwr/execution/machine.i32_gt_s: overflow"
-            )
-        )
+        use #(a, b) <- result.try(unwrap_integers(a, b, int32.from_int))
         case int32.compare(a, b)
         {
             order.Gt -> Ok(True)
@@ -408,16 +396,7 @@ pub fn i32_gt_s(state: MachineState) -> Result(MachineState, String)
 pub fn i32_gt_u(state: MachineState) -> Result(MachineState, String)
 {
     i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(
-            result.replace_error(
-                {
-                    use a <- result.try(uint32.from_int(a))
-                    use b <- result.try(uint32.from_int(b))
-                    Ok(#(a, b))
-                },
-                "gwr/execution/machine.i32_gt_u: overflow"
-            )
-        )
+        use #(a, b) <- result.try(unwrap_integers(a, b, uint32.from_int))
         case uint32.compare(a, b)
         {
             order.Gt -> Ok(True)
