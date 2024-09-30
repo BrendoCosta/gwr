@@ -236,6 +236,7 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.I32Eq -> i32_eq(current_state)
                     instruction.I32Ne -> i32_ne(current_state)
                     instruction.I32LtS -> i32_lt_s(current_state)
+                    instruction.I32LtU -> i32_lt_u(current_state)
 
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
@@ -355,6 +356,27 @@ pub fn i32_lt_s(state: MachineState) -> Result(MachineState, String)
             )
         )
         case int32.compare(a, b)
+        {
+            order.Lt -> Ok(True)
+            _ -> Ok(False)
+        }
+    })
+}
+
+pub fn i32_lt_u(state: MachineState) -> Result(MachineState, String)
+{
+    i32_comparison(state, fn (a, b) {
+        use #(a, b) <- result.try(
+            result.replace_error(
+                {
+                    use a <- result.try(uint32.from_int(a))
+                    use b <- result.try(uint32.from_int(b))
+                    Ok(#(a, b))
+                },
+                "gwr/execution/machine.i32_lt_u: overflow"
+            )
+        )
+        case uint32.compare(a, b)
         {
             order.Lt -> Ok(True)
             _ -> Ok(False)
