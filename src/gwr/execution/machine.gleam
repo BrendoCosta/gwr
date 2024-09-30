@@ -384,6 +384,48 @@ pub fn i32_lt_u(state: MachineState) -> Result(MachineState, String)
     })
 }
 
+pub fn i32_gt_s(state: MachineState) -> Result(MachineState, String)
+{
+    i32_comparison(state, fn (a, b) {
+        use #(a, b) <- result.try(
+            result.replace_error(
+                {
+                    use a <- result.try(int32.from_int(a))
+                    use b <- result.try(int32.from_int(b))
+                    Ok(#(a, b))
+                },
+                "gwr/execution/machine.i32_gt_s: overflow"
+            )
+        )
+        case int32.compare(a, b)
+        {
+            order.Gt -> Ok(True)
+            _ -> Ok(False)
+        }
+    })
+}
+
+pub fn i32_gt_u(state: MachineState) -> Result(MachineState, String)
+{
+    i32_comparison(state, fn (a, b) {
+        use #(a, b) <- result.try(
+            result.replace_error(
+                {
+                    use a <- result.try(uint32.from_int(a))
+                    use b <- result.try(uint32.from_int(b))
+                    Ok(#(a, b))
+                },
+                "gwr/execution/machine.i32_gt_u: overflow"
+            )
+        )
+        case uint32.compare(a, b)
+        {
+            order.Gt -> Ok(True)
+            _ -> Ok(False)
+        }
+    })
+}
+
 pub fn i32_add(state: MachineState) -> Result(MachineState, String)
 {
     let #(stack, values) = stack.pop_repeat(state.stack, 2)
