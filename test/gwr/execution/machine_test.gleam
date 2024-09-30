@@ -191,6 +191,27 @@ pub fn i32_lt_u_test()
     )
 }
 
+pub fn i32_lt_u___error___test()
+{
+    [
+        #([runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: unexpected arguments \"[ValueEntry(Integer32(0))]\""),
+        #([runtime.Integer32(0x100000000), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.i32_lt_u: overflow"),
+        #([runtime.Integer32(65536), runtime.Integer32(0x100000000)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.i32_lt_u: overflow"),
+    ]
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            
+            machine.i32_lt_u(state)
+            |> should.be_error
+            |> should.equal(test_case.1)
+        }
+    )
+}
+
 pub fn i32_add_test()
 {
     let state = create_empty_state()
