@@ -235,6 +235,7 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.I32Eqz -> i32_eqz(current_state)
                     instruction.I32Eq -> i32_eq(current_state)
                     instruction.I32Ne -> i32_ne(current_state)
+                    instruction.I32LtS -> i32_lt_s(current_state)
 
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
