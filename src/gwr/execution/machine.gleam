@@ -4,6 +4,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import gleam/option
+import gleam/order
 
 import gwr/execution/runtime
 import gwr/execution/stack
@@ -14,6 +15,8 @@ import gwr/syntax/module
 import gwr/syntax/types
 
 import ieee_float
+import ranged_int/builtin/int32
+import ranged_int/builtin/uint32
 
 /// A configuration consists of the current store and an executing thread.
 ///
@@ -304,21 +307,22 @@ pub fn i32_eqz(state: MachineState) -> Result(MachineState, String)
     Ok(MachineState(..state, stack: stack))
 }
 
-pub fn i32_comparison(state: MachineState, comparison_function: fn (Int, Int) -> Bool) -> Result(MachineState, String)
+pub fn i32_comparison(state: MachineState, comparison_function: fn (Int, Int) -> Result(Bool, String)) -> Result(MachineState, String)
 {
     let #(stack, values) = stack.pop_repeat(state.stack, 2)
     use result <- result.try(
         case option.values(values)
         {
-            [stack.ValueEntry(runtime.Integer32(value: a)), stack.ValueEntry(runtime.Integer32(value: b))] ->
+            [stack.ValueEntry(runtime.Integer32(value: b)), stack.ValueEntry(runtime.Integer32(value: a))] ->
             {
                 case comparison_function(a, b)
                 {
-                    True -> Ok(runtime.true_)
-                    False -> Ok(runtime.false_)
+                    Ok(True) -> Ok(runtime.true_)
+                    Ok(False) -> Ok(runtime.false_)
+                    Error(reason) -> Error("gwr/execution/machine.i32_comparison: couldn't compare operands: " <> reason)
                 }
             }
-            anything_else -> Error("gwr/execution/machine.i32_eq: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+            anything_else -> Error("gwr/execution/machine.i32_comparison: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
         }
     )
 
@@ -328,12 +332,33 @@ pub fn i32_comparison(state: MachineState, comparison_function: fn (Int, Int) ->
 
 pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) { a == b})
+    i32_comparison(state, fn (a, b) { Ok(a == b) })
 }
 
 pub fn i32_ne(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) { a != b})
+    i32_comparison(state, fn (a, b) { Ok(a != b) })
+}
+
+pub fn i32_lt_s(state: MachineState) -> Result(MachineState, String)
+{
+    i32_comparison(state, fn (a, b) {
+        use #(a, b) <- result.try(
+            result.replace_error(
+                {
+                    use a <- result.try(int32.from_int(a))
+                    use b <- result.try(int32.from_int(b))
+                    Ok(#(a, b))
+                },
+                "gwr/execution/machine.i32_lt_s: overflow"
+            )
+        )
+        case int32.compare(a, b)
+        {
+            order.Lt -> Ok(True)
+            _ -> Ok(False)
+        }
+    })
 }
 
 pub fn i32_add(state: MachineState) -> Result(MachineState, String)
