@@ -241,6 +241,8 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.I32GtU -> i32_gt_u(current_state)
                     instruction.I32LeS -> i32_le_s(current_state)
                     instruction.I32LeU -> i32_le_u(current_state)
+                    instruction.I32GeS -> i32_ge_s(current_state)
+                    instruction.I32GeU -> i32_ge_u(current_state)
 
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
@@ -428,6 +430,30 @@ pub fn i32_le_u(state: MachineState) -> Result(MachineState, String)
         case uint32.compare(a, b)
         {
             order.Lt | order.Eq -> Ok(True)
+            _ -> Ok(False)
+        }
+    })
+}
+
+pub fn i32_ge_s(state: MachineState) -> Result(MachineState, String)
+{
+    i32_comparison(state, fn (a, b) {
+        use #(a, b) <- result.try(unwrap_integers(a, b, int32.from_int))
+        case int32.compare(a, b)
+        {
+            order.Gt | order.Eq -> Ok(True)
+            _ -> Ok(False)
+        }
+    })
+}
+
+pub fn i32_ge_u(state: MachineState) -> Result(MachineState, String)
+{
+    i32_comparison(state, fn (a, b) {
+        use #(a, b) <- result.try(unwrap_integers(a, b, uint32.from_int))
+        case uint32.compare(a, b)
+        {
+            order.Gt | order.Eq -> Ok(True)
             _ -> Ok(False)
         }
     })

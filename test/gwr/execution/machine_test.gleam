@@ -271,13 +271,66 @@ pub fn i32_le_u_test()
     )
 }
 
+pub fn i32_ge_s_test()
+{
+    [
+        #([runtime.Integer32(0x7fffffff), runtime.Integer32(0x7fffffff)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+        #([runtime.Integer32(-65535), runtime.Integer32(-65536)], runtime.true_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_),
+        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.false_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-65535)], runtime.false_),
+    ]
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.i32_ge_s(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
+pub fn i32_ge_u_test()
+{
+    [
+        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xffffffff)], runtime.true_),
+        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xfffffffe)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.false_),
+        #([runtime.Integer32(0xfffffffe), runtime.Integer32(0xffffffff)], runtime.false_),
+    ]
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.i32_ge_u(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
 pub fn i32_comparison___signed_overflow_error___test()
 {
     let test_functions =
     [
         #("machine.i32_lt_s", machine.i32_lt_s),
         #("machine.i32_gt_s", machine.i32_gt_s),
-        #("machine.i32_le_s", machine.i32_le_s)
+        #("machine.i32_le_s", machine.i32_le_s),
+        #("machine.i32_ge_s", machine.i32_ge_s)
     ]
     
     let test_values =
@@ -319,7 +372,8 @@ pub fn i32_comparison___unsigned_overflow_error___test()
     [
         #("machine.i32_lt_u", machine.i32_lt_u),
         #("machine.i32_gt_u", machine.i32_gt_u),
-        #("machine.i32_le_u", machine.i32_le_u)
+        #("machine.i32_le_u", machine.i32_le_u),
+        #("machine.i32_ge_u", machine.i32_ge_u)
     ]
     
     let test_values =
