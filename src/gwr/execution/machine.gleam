@@ -228,6 +228,7 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                 use current_state <- result.try(current_state)
                 case instruction
                 {
+                    instruction.End -> Ok(current_state)
                     instruction.I32Const(value) -> i32_const(current_state, value)
                     instruction.I64Const(value) -> i64_const(current_state, value)
                     instruction.F32Const(value) -> f32_const(current_state, value)
@@ -246,7 +247,7 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
 
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
-                    _ -> Ok(current_state)
+                    unknown -> Error("gwr/execution/machine.execute: unknown instruction \"" <> string.inspect(unknown) <> "\"")
                 }
             }
         )
