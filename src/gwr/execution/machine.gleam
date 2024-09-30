@@ -186,7 +186,7 @@ pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(run
                     module_instance: function_module_instance
                 )
             )
-            let new_state_stack = stack.push(push: stack.ActivationEntry(function_frame), to: state.stack)
+            let new_state_stack = stack.push(push: [stack.ActivationEntry(function_frame)], to: state.stack)
             let new_state_configuration = Configuration(..state.configuration, thread: Thread(framestate: function_frame.framestate, instructions: function_code.body))
             let new_state = MachineState(configuration: new_state_configuration, stack: new_state_stack)
 
@@ -230,6 +230,7 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.F32Const(value) -> f32_const(current_state, value)
                     instruction.F64Const(value) -> f64_const(current_state, value)
                     instruction.I32Eqz -> i32_eqz(current_state)
+                    instruction.I32Eq -> i32_eq(current_state)
 
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
@@ -263,27 +264,27 @@ pub fn address_to_string(address: runtime.Address) -> String
 
 pub fn i32_const(state: MachineState, value: Int) -> Result(MachineState, String)
 {
-    let stack = stack.push(state.stack, stack.ValueEntry(runtime.Integer32(value)))
+    let stack = stack.push(state.stack, [stack.ValueEntry(runtime.Integer32(value))])
     Ok(MachineState(..state, stack: stack))
 }
 
 pub fn i64_const(state: MachineState, value: Int) -> Result(MachineState, String)
 {
-    let stack = stack.push(state.stack, stack.ValueEntry(runtime.Integer64(value)))
+    let stack = stack.push(state.stack, [stack.ValueEntry(runtime.Integer64(value))])
     Ok(MachineState(..state, stack: stack))
 }
 
 pub fn f32_const(state: MachineState, value: ieee_float.IEEEFloat) -> Result(MachineState, String)
 {
     use built_in_float <- result.try(runtime.ieee_float_to_builtin_float(value))
-    let stack = stack.push(state.stack, stack.ValueEntry(runtime.Float32(built_in_float)))
+    let stack = stack.push(state.stack, [stack.ValueEntry(runtime.Float32(built_in_float))])
     Ok(MachineState(..state, stack: stack))
 }
 
 pub fn f64_const(state: MachineState, value: ieee_float.IEEEFloat) -> Result(MachineState, String)
 {
     use built_in_float <- result.try(runtime.ieee_float_to_builtin_float(value))
-    let stack = stack.push(state.stack, stack.ValueEntry(runtime.Float64(built_in_float)))
+    let stack = stack.push(state.stack, [stack.ValueEntry(runtime.Float64(built_in_float))])
     Ok(MachineState(..state, stack: stack))
 }
 
@@ -298,7 +299,29 @@ pub fn i32_eqz(state: MachineState) -> Result(MachineState, String)
             anything_else -> Error("gwr/execution/machine.i32_eqz: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
         }
     )
-    let stack = stack.push(state.stack, result)
+    let stack = stack.push(state.stack, [result])
+    Ok(MachineState(..state, stack: stack))
+}
+
+pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
+{
+    let #(stack, values) = stack.pop_repeat(state.stack, 2)
+    use result <- result.try(
+        case option.values(values)
+        {
+            [stack.ValueEntry(runtime.Integer32(value: a)), stack.ValueEntry(runtime.Integer32(value: b))] ->
+            {
+                case a == b
+                {
+                    True -> Ok(runtime.true_)
+                    False -> Ok(runtime.false_)
+                }
+            }
+            anything_else -> Error("gwr/execution/machine.i32_eq: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+        }
+    )
+
+    let stack = stack.push(stack, [stack.ValueEntry(result)])
     Ok(MachineState(..state, stack: stack))
 }
 
@@ -313,7 +336,7 @@ pub fn i32_add(state: MachineState) -> Result(MachineState, String)
         }
     )
 
-    let stack = stack.push(stack, stack.ValueEntry(runtime.Integer32(result)))
+    let stack = stack.push(stack, [stack.ValueEntry(runtime.Integer32(result))])
     Ok(MachineState(..state, stack: stack))
 }
 
@@ -327,6 +350,6 @@ pub fn local_get(state: MachineState, index: index.LocalIndex) -> Result(Machine
         }
     )
 
-    let stack = stack.push(state.stack, stack.ValueEntry(local))
+    let stack = stack.push(state.stack, [stack.ValueEntry(local)])
     Ok(MachineState(..state, stack: stack))
 }

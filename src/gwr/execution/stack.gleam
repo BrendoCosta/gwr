@@ -54,9 +54,9 @@ pub fn length(from stack: Stack) -> Int
     list.length(stack.entries)
 }
 
-pub fn push(to stack: Stack, push new_entry: StackEntry) -> Stack
+pub fn push(to stack: Stack, push new_entries: List(StackEntry)) -> Stack
 {
-    Stack(entries: list.append(stack.entries, [new_entry]))
+    Stack(entries: list.append(stack.entries, new_entries))
 }
 
 pub fn peek(from stack: Stack) -> option.Option(StackEntry)

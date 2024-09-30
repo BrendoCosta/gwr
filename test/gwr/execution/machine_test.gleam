@@ -64,9 +64,33 @@ pub fn i32_eqz_test()
         fn (test_case)
         {
             let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: stack.ValueEntry(test_case.0))
+            let stack = stack.push(to: state.stack, push: [stack.ValueEntry(test_case.0)])
             let state = machine.MachineState(..state, stack: stack)
             let state = machine.i32_eqz(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
+pub fn i32_eq_test()
+{
+    [
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.false_),
+        #([runtime.Integer32(0), runtime.Integer32(-1)], runtime.false_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_)
+    ]
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.i32_eq(state) |> should.be_ok
 
             stack.peek(state.stack)
             |> should.be_some
@@ -78,8 +102,8 @@ pub fn i32_eqz_test()
 pub fn i32_add_test()
 {
     let state = create_empty_state()
-    let stack = stack.push(to: state.stack, push: stack.ValueEntry(runtime.Integer32(4)))
-                |> stack.push(stack.ValueEntry(runtime.Integer32(6)))
+    let stack = stack.push(to: state.stack, push: [stack.ValueEntry(runtime.Integer32(4))])
+                |> stack.push([stack.ValueEntry(runtime.Integer32(6))])
     let state = machine.MachineState(..state, stack: stack)
     let state = machine.i32_add(state) |> should.be_ok
     
