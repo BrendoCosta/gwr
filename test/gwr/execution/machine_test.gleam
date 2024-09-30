@@ -1,4 +1,6 @@
+import gleam/io
 import gleam/list
+import gleam/string
 
 import gwr/execution/machine
 import gwr/execution/runtime
@@ -147,28 +149,6 @@ pub fn i32_lt_s_test()
     )
 }
 
-pub fn i32_lt_s___error___test()
-{
-    [
-        #([runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: unexpected arguments \"[ValueEntry(Integer32(0))]\""),
-        #([runtime.Integer32(0x80000000), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
-        #([runtime.Integer32(0x80000001 * -1), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
-        #([runtime.Integer32(65536), runtime.Integer32(0x80000000)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
-    ]
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            
-            machine.i32_lt_s(state)
-            |> should.be_error
-            |> should.equal(test_case.1)
-        }
-    )
-}
-
 pub fn i32_lt_u_test()
 {
     [
@@ -188,28 +168,6 @@ pub fn i32_lt_u_test()
             stack.peek(state.stack)
             |> should.be_some
             |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn i32_lt_u___error___test()
-{
-    [
-        #([runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: unexpected arguments \"[ValueEntry(Integer32(0))]\""),
-        #([runtime.Integer32(0x100000000), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
-        #([runtime.Integer32(-1), runtime.Integer32(0)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
-        #([runtime.Integer32(65536), runtime.Integer32(0x100000000)], "gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow"),
-    ]
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            
-            machine.i32_lt_u(state)
-            |> should.be_error
-            |> should.equal(test_case.1)
         }
     )
 }
@@ -260,6 +218,92 @@ pub fn i32_gt_u_test()
             stack.peek(state.stack)
             |> should.be_some
             |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
+pub fn i32_comparison___signed_overflow_error___test()
+{
+    let test_functions =
+    [
+        #("machine.i32_lt_s", machine.i32_lt_s),
+        #("machine.i32_gt_s", machine.i32_gt_s),
+        #("machine.i32_le_s", machine.i32_le_s)
+    ]
+    
+    let test_values =
+    [
+        #(runtime.Integer32(0x80000000), runtime.Integer32(0x80000000)),
+        #(runtime.Integer32(0), runtime.Integer32(0x80000000)),
+        #(runtime.Integer32(0x80000000), runtime.Integer32(0)),
+        #(runtime.Integer32(0x80000001 * -1), runtime.Integer32(0)),
+        #(runtime.Integer32(0), runtime.Integer32(0x80000001 * -1)),
+    ]
+
+    test_functions
+    |> list.each(
+        fn (function)
+        {
+            test_values
+            |> list.each(
+                fn (value)
+                {
+                    io.println(string.inspect(function.0))
+                    io.println(string.inspect(value))
+
+                    let state = create_empty_state()
+                    let stack = stack.push(to: state.stack, push: [stack.ValueEntry(value.0), stack.ValueEntry(value.1)])
+                    let state = machine.MachineState(..state, stack: stack)
+
+                    function.1(state)
+                    |> should.be_error
+                    |> should.equal("gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow")
+                }
+            )
+        }
+    )
+}
+
+pub fn i32_comparison___unsigned_overflow_error___test()
+{
+    let test_functions =
+    [
+        #("machine.i32_lt_u", machine.i32_lt_u),
+        #("machine.i32_gt_u", machine.i32_gt_u),
+        #("machine.i32_le_u", machine.i32_le_u)
+    ]
+    
+    let test_values =
+    [
+        #(runtime.Integer32(0x100000000), runtime.Integer32(0x100000000)),
+        #(runtime.Integer32(-1), runtime.Integer32(0x100000000)),
+        #(runtime.Integer32(0x100000000), runtime.Integer32(-1)),
+        #(runtime.Integer32(0x100000000), runtime.Integer32(0)),
+        #(runtime.Integer32(0), runtime.Integer32(0x100000000)),
+        #(runtime.Integer32(0), runtime.Integer32(-1)),
+        #(runtime.Integer32(-1), runtime.Integer32(0))
+    ]
+
+    test_functions
+    |> list.each(
+        fn (function)
+        {
+            test_values
+            |> list.each(
+                fn (value)
+                {
+                    io.println(string.inspect(function.0))
+                    io.println(string.inspect(value))
+
+                    let state = create_empty_state()
+                    let stack = stack.push(to: state.stack, push: [stack.ValueEntry(value.0), stack.ValueEntry(value.1)])
+                    let state = machine.MachineState(..state, stack: stack)
+
+                    function.1(state)
+                    |> should.be_error
+                    |> should.equal("gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow")
+                }
+            )
         }
     )
 }
