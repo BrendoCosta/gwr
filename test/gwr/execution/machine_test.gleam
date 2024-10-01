@@ -805,6 +805,195 @@ pub fn i64_comparison___unsigned_overflow_error___test()
     )
 }
 
+const f32_nan_tests =
+[
+    #([runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.NaN)],                        runtime.false_),
+    #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.NaN)],                        runtime.false_),
+    #([runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
+    #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.NaN)],                        runtime.false_),
+    #([runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.false_),
+    #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.NaN)],                        runtime.false_),
+    #([runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.false_),
+]
+
+pub fn f32_eq_test()
+{
+    [
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
+        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
+        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.false_)
+    ]
+    |> list.append(f32_nan_tests)
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.f32_eq(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
+pub fn f32_ne_test()
+{
+    [
+        #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
+        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.false_),
+        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.false_)
+    ]
+    |> list.append(f32_nan_tests)
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.f32_ne(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
+pub fn f32_lt_test()
+{
+    [
+        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.true_),
+        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.true_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
+        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
+        #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.false_),
+        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
+        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.false_),
+        #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.false_),
+    ]
+    |> list.append(f32_nan_tests)
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.f32_lt(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
+pub fn f32_gt_test()
+{
+    [
+        #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
+        #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
+        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
+        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.false_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
+        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
+        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.false_)
+    ]
+    |> list.append(f32_nan_tests)
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.f32_gt(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
+pub fn f32_le_test()
+{
+    [
+        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
+        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.true_),
+        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.true_),
+        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
+        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
+        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
+        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
+        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
+        #([runtime.Float32(runtime.Finite(-65537.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
+        #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.false_),
+        #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.false_),
+        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.false_),
+        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65537.0))],           runtime.false_),
+    ]
+    |> list.append(f32_nan_tests)
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.f32_le(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
+pub fn f32_ge_test()
+{
+    [
+        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
+        #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
+        #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
+        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
+        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
+        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
+        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
+        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
+        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65537.0))],           runtime.true_),
+
+        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.false_),
+        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.false_),
+        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
+        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
+        #([runtime.Float32(runtime.Finite(-65537.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.false_),
+    ]
+    |> list.append(f32_nan_tests)
+    |> list.each(
+        fn (test_case)
+        {
+            let state = create_empty_state()
+            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+            let state = machine.MachineState(..state, stack: stack)
+            let state = machine.f32_ge(state) |> should.be_ok
+
+            stack.peek(state.stack)
+            |> should.be_some
+            |> should.equal(stack.ValueEntry(test_case.1))
+        }
+    )
+}
+
 pub fn i32_add_test()
 {
     let state = create_empty_state()

@@ -3,6 +3,7 @@ import gleam/int
 import gleam/list
 import gleam/result
 import gleam/string
+import gleam/order
 import gleam/option
 
 import gwr/execution/runtime
@@ -252,6 +253,12 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.I64LeU -> i64_le_u(current_state)
                     instruction.I64GeS -> i64_ge_s(current_state)
                     instruction.I64GeU -> i64_ge_u(current_state)
+                    instruction.F32Eq  -> f32_eq(current_state)
+                    instruction.F32Ne  -> f32_ne(current_state)
+                    instruction.F32Lt  -> f32_lt(current_state)
+                    instruction.F32Gt  -> f32_gt(current_state)
+                    instruction.F32Le  -> f32_le(current_state)
+                    instruction.F32Ge  -> f32_ge(current_state)
 
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
@@ -587,6 +594,73 @@ pub fn i64_ge_u(state: MachineState) -> Result(MachineState, String)
         use a <- result.try(unsigned_integer_overflow_check(a, 64))
         use b <- result.try(unsigned_integer_overflow_check(b, 64))
         Ok(bool_to_i32_bool(a >= b))
+    })
+}
+
+pub fn f32_eq(state: MachineState) -> Result(MachineState, String)
+{
+    f32_binary_operation(state, fn (a, b) {
+        case ieee_float.compare(a, b)
+        {
+            Ok(order.Eq) -> Ok(runtime.true_)
+            _ -> Ok(runtime.false_)
+        }
+    })
+}
+
+pub fn f32_ne(state: MachineState) -> Result(MachineState, String)
+{
+    f32_binary_operation(state, fn (a, b) {
+        case ieee_float.compare(a, b)
+        {
+            Ok(order.Eq) -> Ok(runtime.false_)
+            Error(Nil) -> Ok(runtime.false_)
+            _ -> Ok(runtime.true_)
+        }
+    })
+}
+
+pub fn f32_lt(state: MachineState) -> Result(MachineState, String)
+{
+    f32_binary_operation(state, fn (a, b) {
+        case ieee_float.compare(a, b)
+        {
+            Ok(order.Lt) -> Ok(runtime.true_)
+            _ -> Ok(runtime.false_)
+        }
+    })
+}
+
+pub fn f32_gt(state: MachineState) -> Result(MachineState, String)
+{
+    f32_binary_operation(state, fn (a, b) {
+        case ieee_float.compare(a, b)
+        {
+            Ok(order.Gt) -> Ok(runtime.true_)
+            _ -> Ok(runtime.false_)
+        }
+    })
+}
+
+pub fn f32_le(state: MachineState) -> Result(MachineState, String)
+{
+    f32_binary_operation(state, fn (a, b) {
+        case ieee_float.compare(a, b)
+        {
+            Ok(order.Lt) | Ok(order.Eq) -> Ok(runtime.true_)
+            _ -> Ok(runtime.false_)
+        }
+    })
+}
+
+pub fn f32_ge(state: MachineState) -> Result(MachineState, String)
+{
+    f32_binary_operation(state, fn (a, b) {
+        case ieee_float.compare(a, b)
+        {
+            Ok(order.Gt) | Ok(order.Eq) -> Ok(runtime.true_)
+            _ -> Ok(runtime.false_)
+        }
     })
 }
 
