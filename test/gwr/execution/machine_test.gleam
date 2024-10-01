@@ -6,6 +6,7 @@ import gwr/execution/machine
 import gwr/execution/runtime
 import gwr/execution/stack
 import gwr/execution/store
+import gwr/syntax/types
 
 import gleeunit
 import gleeunit/should
@@ -55,943 +56,880 @@ fn create_empty_state() -> machine.MachineState
     )
 }
 
-pub fn i32_const_test()
-{
-    let state = machine.i32_const(create_empty_state(), 65536) |> should.be_ok
-    
-    stack.peek(state.stack)
-    |> should.be_some
-    |> should.equal(stack.ValueEntry(runtime.Integer32(65536)))
-}
-
-pub fn i64_const_test()
-{
-    let state = machine.i64_const(create_empty_state(), 65536) |> should.be_ok
-    
-    stack.peek(state.stack)
-    |> should.be_some
-    |> should.equal(stack.ValueEntry(runtime.Integer64(65536)))
-}
-
-pub fn f32_const_test()
-{
-    let state = machine.f32_const(create_empty_state(), ieee_float.finite(65536.0)) |> should.be_ok
-    
-    stack.peek(state.stack)
-    |> should.be_some
-    |> should.equal(stack.ValueEntry(runtime.Float32(runtime.Finite(65536.0))))
-}
-
-pub fn f64_const_test()
-{
-    let state = machine.f64_const(create_empty_state(), ieee_float.finite(65536.0)) |> should.be_ok
-    
-    stack.peek(state.stack)
-    |> should.be_some
-    |> should.equal(stack.ValueEntry(runtime.Float64(runtime.Finite(65536.0))))
-}
-
-pub fn i32_eqz_test()
+pub fn integer_const_test()
 {
     [
-        #(runtime.Integer32(0), runtime.true_),
-        #(runtime.Integer32(1), runtime.false_),
-        #(runtime.Integer32(-1), runtime.false_),
-        #(runtime.Integer32(65536), runtime.false_)
+        #(
+            types.Integer32,
+            0xffffffff,
+            runtime.Integer32(0xffffffff)
+        ),
+        #(
+            types.Integer64,
+            0xffffffffffffffff,
+            runtime.Integer64(0xffffffffffffffff)
+        ),
     ]
     |> list.each(
         fn (test_case)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: [stack.ValueEntry(test_case.0)])
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_eqz(state) |> should.be_ok
+            let state = machine.integer_const(create_empty_state(), test_case.0, test_case.1) |> should.be_ok
 
             stack.peek(state.stack)
             |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+            |> should.equal(stack.ValueEntry(test_case.2))
         }
     )
 }
 
-pub fn i32_eq_test()
+pub fn float_const_test()
 {
     [
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
-        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.true_),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.false_),
-        #([runtime.Integer32(0), runtime.Integer32(-1)], runtime.false_),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_)
+        #(
+            types.Float32,
+            ieee_float.finite(65536.0),
+            runtime.Float32(runtime.Finite(65536.0))
+        ),
+        #(
+            types.Float64,
+            ieee_float.finite(65536.0),
+            runtime.Float64(runtime.Finite(65536.0))
+        ),
     ]
     |> list.each(
         fn (test_case)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_eq(state) |> should.be_ok
+            let state = machine.float_const(create_empty_state(), test_case.0, test_case.1) |> should.be_ok
 
             stack.peek(state.stack)
             |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+            |> should.equal(stack.ValueEntry(test_case.2))
         }
     )
 }
 
-pub fn i32_ne_test()
+pub fn integer_eqz_test()
 {
     [
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
-        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.false_),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.true_),
-        #([runtime.Integer32(0), runtime.Integer32(-1)], runtime.true_),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.false_)
+        #(
+            types.Integer32,
+            [
+                #(runtime.Integer32(0), runtime.true_),
+                #(runtime.Integer32(1), runtime.false_),
+                #(runtime.Integer32(-1), runtime.false_),
+                #(runtime.Integer32(65536), runtime.false_)
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #(runtime.Integer64(0), runtime.true_),
+                #(runtime.Integer64(1), runtime.false_),
+                #(runtime.Integer64(-1), runtime.false_),
+                #(runtime.Integer64(65536), runtime.false_)
+            ]
+        )
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_ne(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: [stack.ValueEntry(test_case.0)])
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_eqz(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i32_lt_s_test()
+pub fn integer_eq_test()
 {
     [
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
-        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.true_),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.true_),
-        #([runtime.Integer32(-1), runtime.Integer32(0)], runtime.true_),
-        #([runtime.Integer32(-65536), runtime.Integer32(-1024)], runtime.true_)
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+                #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.true_),
+                #([runtime.Integer32(0), runtime.Integer32(1)], runtime.false_),
+                #([runtime.Integer32(0), runtime.Integer32(-1)], runtime.false_),
+                #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_)
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
+                #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.true_),
+                #([runtime.Integer64(0), runtime.Integer64(1)], runtime.false_),
+                #([runtime.Integer64(0), runtime.Integer64(-1)], runtime.false_),
+                #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.true_)
+            ]
+        )
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_lt_s(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_eq(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i32_lt_u_test()
+pub fn integer_ne_test()
 {
     [
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
-        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.true_),
-        #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.false_),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.true_)
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+                #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.false_),
+                #([runtime.Integer32(0), runtime.Integer32(1)], runtime.true_),
+                #([runtime.Integer32(0), runtime.Integer32(-1)], runtime.true_),
+                #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.false_)
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
+                #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.false_),
+                #([runtime.Integer64(0), runtime.Integer64(1)], runtime.true_),
+                #([runtime.Integer64(0), runtime.Integer64(-1)], runtime.true_),
+                #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.false_)
+            ]
+        ),
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_lt_u(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_ne(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i32_gt_s_test()
+pub fn integer_lt_s_test()
 {
     [
-        #([runtime.Integer32(0x7fffffff), runtime.Integer32(65536)], runtime.true_),
-        #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.true_),
-        #([runtime.Integer32(-2), runtime.Integer32(-1024)], runtime.true_),
-        #([runtime.Integer32(0x7fffffff * -1), runtime.Integer32(0)], runtime.false_),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
-        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.false_),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.false_)
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+                #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.true_),
+                #([runtime.Integer32(0), runtime.Integer32(1)], runtime.true_),
+                #([runtime.Integer32(-1), runtime.Integer32(0)], runtime.true_),
+                #([runtime.Integer32(-65536), runtime.Integer32(-1024)], runtime.true_)
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
+                #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.true_),
+                #([runtime.Integer64(0), runtime.Integer64(1)], runtime.true_),
+                #([runtime.Integer64(-1), runtime.Integer64(0)], runtime.true_),
+                #([runtime.Integer64(-65536), runtime.Integer64(-1024)], runtime.true_)
+            ]
+        ),
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_gt_s(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_lt_s(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i32_gt_u_test()
+pub fn integer_lt_u_test()
 {
     [
-        #([runtime.Integer32(0xffffffff), runtime.Integer32(0x7fffffff)], runtime.true_),
-        #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.true_),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
-        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.false_),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.false_)
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+                #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.true_),
+                #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.false_),
+                #([runtime.Integer32(0), runtime.Integer32(1)], runtime.true_)
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
+                #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.true_),
+                #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.false_),
+                #([runtime.Integer64(0), runtime.Integer64(1)], runtime.true_)
+            ]
+        ),
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_gt_u(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_lt_u(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i32_le_s_test()
+pub fn integer_gt_s_test()
 {
     [
-        #([runtime.Integer32(0x7fffffff), runtime.Integer32(0x7fffffff)], runtime.true_),
-        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.true_),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65535)], runtime.true_),
-        #([runtime.Integer32(-65535), runtime.Integer32(-65536)], runtime.false_),
-        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.false_),
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0x7fffffff), runtime.Integer32(65536)], runtime.true_),
+                #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.true_),
+                #([runtime.Integer32(-2), runtime.Integer32(-1024)], runtime.true_),
+                #([runtime.Integer32(0x7fffffff * -1), runtime.Integer32(0)], runtime.false_),
+                #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+                #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.false_),
+                #([runtime.Integer32(0), runtime.Integer32(1)], runtime.false_)
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0x7fffffff), runtime.Integer64(65536)], runtime.true_),
+                #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.true_),
+                #([runtime.Integer64(-2), runtime.Integer64(-1024)], runtime.true_),
+                #([runtime.Integer64(0x7fffffff * -1), runtime.Integer64(0)], runtime.false_),
+                #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
+                #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.false_),
+                #([runtime.Integer64(0), runtime.Integer64(1)], runtime.false_)
+            ]
+        ),
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_le_s(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_gt_s(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i32_le_u_test()
+pub fn integer_gt_u_test()
 {
     [
-        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xffffffff)], runtime.true_),
-        #([runtime.Integer32(0xfffffffe), runtime.Integer32(0xffffffff)], runtime.true_),
-        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.true_),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_)
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0xffffffff), runtime.Integer32(0x7fffffff)], runtime.true_),
+                #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.true_),
+                #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+                #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.false_),
+                #([runtime.Integer32(0), runtime.Integer32(1)], runtime.false_)
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0xffffffff), runtime.Integer64(0x7fffffff)], runtime.true_),
+                #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.true_),
+                #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
+                #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.false_),
+                #([runtime.Integer64(0), runtime.Integer64(1)], runtime.false_)
+            ]
+        ),
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_le_u(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_gt_u(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i32_ge_s_test()
+pub fn integer_le_s_test()
 {
     [
-        #([runtime.Integer32(0x7fffffff), runtime.Integer32(0x7fffffff)], runtime.true_),
-        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.true_),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
-        #([runtime.Integer32(-65535), runtime.Integer32(-65536)], runtime.true_),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_),
-        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.false_),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65535)], runtime.false_),
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0x7fffffff), runtime.Integer32(0x7fffffff)], runtime.true_),
+                #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.true_),
+                #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+                #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_),
+                #([runtime.Integer32(-65536), runtime.Integer32(-65535)], runtime.true_),
+                #([runtime.Integer32(-65535), runtime.Integer32(-65536)], runtime.false_),
+                #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.false_),
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0x7fffffff), runtime.Integer64(0x7fffffff)], runtime.true_),
+                #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.true_),
+                #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
+                #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.true_),
+                #([runtime.Integer64(-65536), runtime.Integer64(-65535)], runtime.true_),
+                #([runtime.Integer64(-65535), runtime.Integer64(-65536)], runtime.false_),
+                #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.false_),
+            ]
+        ),
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_ge_s(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_le_s(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i32_ge_u_test()
+pub fn integer_le_u_test()
 {
     [
-        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xffffffff)], runtime.true_),
-        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xfffffffe)], runtime.true_),
-        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.true_),
-        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.true_),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
-        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.false_),
-        #([runtime.Integer32(0xfffffffe), runtime.Integer32(0xffffffff)], runtime.false_),
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0xffffffff), runtime.Integer32(0xffffffff)], runtime.true_),
+                #([runtime.Integer32(0xfffffffe), runtime.Integer32(0xffffffff)], runtime.true_),
+                #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.true_),
+                #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_)
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0xffffffff), runtime.Integer64(0xffffffff)], runtime.true_),
+                #([runtime.Integer64(0xfffffffe), runtime.Integer64(0xffffffff)], runtime.true_),
+                #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.true_),
+                #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_)
+            ]
+        ),
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i32_ge_u(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_le_u(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i32_comparison___signed_overflow_error___test()
+pub fn integer_ge_s_test()
+{
+    [
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0x7fffffff), runtime.Integer32(0x7fffffff)], runtime.true_),
+                #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.true_),
+                #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+                #([runtime.Integer32(-65535), runtime.Integer32(-65536)], runtime.true_),
+                #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_),
+                #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.false_),
+                #([runtime.Integer32(-65536), runtime.Integer32(-65535)], runtime.false_),
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0x7fffffff), runtime.Integer64(0x7fffffff)], runtime.true_),
+                #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.true_),
+                #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
+                #([runtime.Integer64(-65535), runtime.Integer64(-65536)], runtime.true_),
+                #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.true_),
+                #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.false_),
+                #([runtime.Integer64(-65536), runtime.Integer64(-65535)], runtime.false_),
+            ]
+        ),
+    ]
+    |> list.each(
+        fn (integer_type)
+        {
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_ge_s(state, integer_type.0) |> should.be_ok
+
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
+        }
+    )
+}
+
+pub fn integer_ge_u_test()
+{
+    [
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0xffffffff), runtime.Integer32(0xffffffff)], runtime.true_),
+                #([runtime.Integer32(0xffffffff), runtime.Integer32(0xfffffffe)], runtime.true_),
+                #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.true_),
+                #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.true_),
+                #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+                #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.false_),
+                #([runtime.Integer32(0xfffffffe), runtime.Integer32(0xffffffff)], runtime.false_),
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0xffffffff), runtime.Integer64(0xffffffff)], runtime.true_),
+                #([runtime.Integer64(0xffffffff), runtime.Integer64(0xfffffffe)], runtime.true_),
+                #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.true_),
+                #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.true_),
+                #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
+                #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.false_),
+                #([runtime.Integer64(0xfffffffe), runtime.Integer64(0xffffffff)], runtime.false_),
+            ]
+        ),
+    ]
+    |> list.each(
+        fn (integer_type)
+        {
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_ge_u(state, integer_type.0) |> should.be_ok
+
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
+        }
+    )
+}
+
+pub fn integer_comparison___signed_overflow_error___test()
 {
     let test_functions =
     [
-        #("machine.i32_lt_s", machine.i32_lt_s),
-        #("machine.i32_gt_s", machine.i32_gt_s),
-        #("machine.i32_le_s", machine.i32_le_s),
-        #("machine.i32_ge_s", machine.i32_ge_s)
+        #("machine.integer_lt_s", machine.integer_lt_s),
+        #("machine.integer_gt_s", machine.integer_gt_s),
+        #("machine.integer_le_s", machine.integer_le_s),
+        #("machine.integer_ge_s", machine.integer_ge_s)
     ]
     
     let test_values =
     [
-        #(runtime.Integer32(0x80000000), runtime.Integer32(0x80000000)),
-        #(runtime.Integer32(0), runtime.Integer32(0x80000000)),
-        #(runtime.Integer32(0x80000000), runtime.Integer32(0)),
-        #(runtime.Integer32(0x80000001 * -1), runtime.Integer32(0)),
-        #(runtime.Integer32(0), runtime.Integer32(0x80000001 * -1)),
+        #(
+            types.Integer32,
+            [
+                #(runtime.Integer32(0x80000000), runtime.Integer32(0x80000000)),
+                #(runtime.Integer32(0), runtime.Integer32(0x80000000)),
+                #(runtime.Integer32(0x80000000), runtime.Integer32(0)),
+                #(runtime.Integer32(0x80000001 * -1), runtime.Integer32(0)),
+                #(runtime.Integer32(0), runtime.Integer32(0x80000001 * -1)),
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #(runtime.Integer64(0x8000000000000000), runtime.Integer64(0x8000000000000000)),
+                #(runtime.Integer64(0), runtime.Integer64(0x8000000000000000)),
+                #(runtime.Integer64(0x8000000000000000), runtime.Integer64(0)),
+                #(runtime.Integer64(0x8000000000000001 * -1), runtime.Integer64(0)),
+                #(runtime.Integer64(0), runtime.Integer64(0x8000000000000001 * -1)),
+            ]
+        )
     ]
 
-    test_functions
-    |> list.each(
-        fn (function)
-        {
-            test_values
-            |> list.each(
-                fn (value)
-                {
-                    io.println(string.inspect(function.0))
-                    io.println(string.inspect(value))
+    list.each(test_functions, fn (function) {
+        list.each(test_values, fn (tst_val) {
+            list.each(tst_val.1, fn (val) {
+                io.println(string.inspect(function.0))
+                io.println(string.inspect(tst_val.0))
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: [stack.ValueEntry(val.0), stack.ValueEntry(val.1)])
+                let state = machine.MachineState(..state, stack: stack)
 
-                    let state = create_empty_state()
-                    let stack = stack.push(to: state.stack, push: [stack.ValueEntry(value.0), stack.ValueEntry(value.1)])
-                    let state = machine.MachineState(..state, stack: stack)
-
-                    function.1(state)
-                    |> should.be_error
-                    |> should.equal("gwr/execution/machine.signed_integer_overflow_check: signed integer overflow")
-                }
-            )
-        }
-    )
+                function.1(state, tst_val.0)
+                |> should.be_error
+                |> should.equal("gwr/execution/machine.signed_integer_overflow_check: signed integer overflow")
+            })
+        })
+    })
 }
 
-pub fn i32_comparison___unsigned_overflow_error___test()
+pub fn integer_comparison___unsigned_overflow_error___test()
 {
     let test_functions =
     [
-        #("machine.i32_lt_u", machine.i32_lt_u),
-        #("machine.i32_gt_u", machine.i32_gt_u),
-        #("machine.i32_le_u", machine.i32_le_u),
-        #("machine.i32_ge_u", machine.i32_ge_u)
+        #("machine.integer_lt_u", machine.integer_lt_u),
+        #("machine.integer_gt_u", machine.integer_gt_u),
+        #("machine.integer_le_u", machine.integer_le_u),
+        #("machine.integer_ge_u", machine.integer_ge_u)
     ]
     
     let test_values =
     [
-        #(runtime.Integer32(0x100000000), runtime.Integer32(0x100000000)),
-        #(runtime.Integer32(-1), runtime.Integer32(0x100000000)),
-        #(runtime.Integer32(0x100000000), runtime.Integer32(-1)),
-        #(runtime.Integer32(0x100000000), runtime.Integer32(0)),
-        #(runtime.Integer32(0), runtime.Integer32(0x100000000)),
-        #(runtime.Integer32(0), runtime.Integer32(-1)),
-        #(runtime.Integer32(-1), runtime.Integer32(0))
+        #(
+            types.Integer32,
+            [
+                #(runtime.Integer32(0x100000000), runtime.Integer32(0x100000000)),
+                #(runtime.Integer32(-1), runtime.Integer32(0x100000000)),
+                #(runtime.Integer32(0x100000000), runtime.Integer32(-1)),
+                #(runtime.Integer32(0x100000000), runtime.Integer32(0)),
+                #(runtime.Integer32(0), runtime.Integer32(0x100000000)),
+                #(runtime.Integer32(0), runtime.Integer32(-1)),
+                #(runtime.Integer32(-1), runtime.Integer32(0))
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #(runtime.Integer64(0x10000000000000000), runtime.Integer64(0x10000000000000000)),
+                #(runtime.Integer64(-1), runtime.Integer64(0x10000000000000000)),
+                #(runtime.Integer64(0x10000000000000000), runtime.Integer64(-1)),
+                #(runtime.Integer64(0x10000000000000000), runtime.Integer64(0)),
+                #(runtime.Integer64(0), runtime.Integer64(0x10000000000000000)),
+                #(runtime.Integer64(0), runtime.Integer64(-1)),
+                #(runtime.Integer64(-1), runtime.Integer64(0))
+            ]
+        )
     ]
 
-    test_functions
-    |> list.each(
-        fn (function)
-        {
-            test_values
-            |> list.each(
-                fn (value)
-                {
-                    io.println(string.inspect(function.0))
-                    io.println(string.inspect(value))
+    list.each(test_functions, fn (function) {
+        list.each(test_values, fn (tst_val) {
+            list.each(tst_val.1, fn (val) {
+                io.println(string.inspect(function.0))
+                io.println(string.inspect(tst_val.0))
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: [stack.ValueEntry(val.0), stack.ValueEntry(val.1)])
+                let state = machine.MachineState(..state, stack: stack)
 
-                    let state = create_empty_state()
-                    let stack = stack.push(to: state.stack, push: [stack.ValueEntry(value.0), stack.ValueEntry(value.1)])
-                    let state = machine.MachineState(..state, stack: stack)
-
-                    function.1(state)
-                    |> should.be_error
-                    |> should.equal("gwr/execution/machine.unsigned_integer_overflow_check: unsigned integer overflow")
-                }
-            )
-        }
-    )
+                function.1(state, tst_val.0)
+                |> should.be_error
+                |> should.equal("gwr/execution/machine.unsigned_integer_overflow_check: unsigned integer overflow")
+            })
+        })
+    })
 }
 
-pub fn i64_eqz_test()
+pub fn float_eq_test()
 {
     [
-        #(runtime.Integer64(0), runtime.true_),
-        #(runtime.Integer64(1), runtime.false_),
-        #(runtime.Integer64(-1), runtime.false_),
-        #(runtime.Integer64(65536), runtime.false_)
+        #(
+            types.Float32,
+            [
+                #([runtime.Float32(runtime.Finite(0.0)),        runtime.Float32(runtime.Finite(0.0))],      runtime.true_),
+                #([runtime.Float32(runtime.Finite(65536.0)),    runtime.Float32(runtime.Finite(65536.0))],  runtime.true_),
+                #([runtime.Float32(runtime.Finite(-65536.0)),   runtime.Float32(runtime.Finite(-65536.0))], runtime.true_),
+                #([runtime.Float32(runtime.Finite(0.0)),        runtime.Float32(runtime.Finite(1.0))],      runtime.false_),
+                #([runtime.Float32(runtime.Finite(0.0)),        runtime.Float32(runtime.Finite(-1.0))],     runtime.false_)
+            ]
+        )
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: [stack.ValueEntry(test_case.0)])
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_eqz(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.float_eq(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i64_eq_test()
+pub fn float_ne_test()
 {
     [
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
-        #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.true_),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.false_),
-        #([runtime.Integer64(0), runtime.Integer64(-1)], runtime.false_),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.true_)
+        #(
+            types.Float32,
+            [
+                #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
+                #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
+                #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
+                #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
+                #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.false_),
+                #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.false_)
+            ]
+        )
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_eq(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.float_ne(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i64_ne_test()
+pub fn float_lt_test()
 {
     [
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
-        #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.false_),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.true_),
-        #([runtime.Integer64(0), runtime.Integer64(-1)], runtime.true_),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.false_)
+        #(
+            types.Float32,
+            [
+                #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.true_),
+                #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.true_),
+                #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
+                #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
+                #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.false_),
+                #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
+                #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.false_),
+                #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.false_),
+            ]
+        )
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_ne(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.float_lt(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i64_lt_s_test()
+pub fn float_gt_test()
 {
     [
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
-        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.true_),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.true_),
-        #([runtime.Integer64(-1), runtime.Integer64(0)], runtime.true_),
-        #([runtime.Integer64(-65536), runtime.Integer64(-1024)], runtime.true_)
+        #(
+            types.Float32,
+            [
+                #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
+                #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
+                #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
+                #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
+                #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.false_),
+                #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
+                #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
+                #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.false_)
+            ]
+        )
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_lt_s(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.float_gt(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i64_lt_u_test()
+pub fn float_le_test()
 {
     [
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
-        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.true_),
-        #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.false_),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.true_)
+        #(
+            types.Float32,
+            [
+                #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
+                #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.true_),
+                #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.true_),
+                #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
+                #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
+                #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
+                #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
+                #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
+                #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
+                #([runtime.Float32(runtime.Finite(-65537.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
+                #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.false_),
+                #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.false_),
+                #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
+                #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.false_),
+                #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65537.0))],           runtime.false_),
+            ]
+        )
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_lt_u(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.float_le(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i64_gt_s_test()
+pub fn float_ge_test()
 {
     [
-        #([runtime.Integer64(0x7fffffff), runtime.Integer64(65536)], runtime.true_),
-        #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.true_),
-        #([runtime.Integer64(-2), runtime.Integer64(-1024)], runtime.true_),
-        #([runtime.Integer64(0x7fffffff * -1), runtime.Integer64(0)], runtime.false_),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
-        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.false_),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.false_)
+        #(
+            types.Float32,
+            [
+                #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
+                #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
+                #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
+                #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
+                #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
+                #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
+                #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
+                #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
+                #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
+                #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65537.0))],           runtime.true_),
+                #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.false_),
+                #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.false_),
+                #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
+                #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
+                #([runtime.Float32(runtime.Finite(-65537.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.false_),
+            ]
+        )
     ]
     |> list.each(
-        fn (test_case)
+        fn (integer_type)
         {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_gt_s(state) |> should.be_ok
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.float_ge(state, integer_type.0) |> should.be_ok
 
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
         }
     )
 }
 
-pub fn i64_gt_u_test()
-{
-    [
-        #([runtime.Integer64(0xffffffff), runtime.Integer64(0x7fffffff)], runtime.true_),
-        #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.true_),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
-        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.false_),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.false_)
-    ]
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_gt_u(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn i64_le_s_test()
-{
-    [
-        #([runtime.Integer64(0x7fffffff), runtime.Integer64(0x7fffffff)], runtime.true_),
-        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.true_),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.true_),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65535)], runtime.true_),
-        #([runtime.Integer64(-65535), runtime.Integer64(-65536)], runtime.false_),
-        #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.false_),
-    ]
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_le_s(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn i64_le_u_test()
-{
-    [
-        #([runtime.Integer64(0xffffffff), runtime.Integer64(0xffffffff)], runtime.true_),
-        #([runtime.Integer64(0xfffffffe), runtime.Integer64(0xffffffff)], runtime.true_),
-        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.true_),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_)
-    ]
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_le_u(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn i64_ge_s_test()
-{
-    [
-        #([runtime.Integer64(0x7fffffff), runtime.Integer64(0x7fffffff)], runtime.true_),
-        #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.true_),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
-        #([runtime.Integer64(-65535), runtime.Integer64(-65536)], runtime.true_),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.true_),
-        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.false_),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65535)], runtime.false_),
-    ]
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_ge_s(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn i64_ge_u_test()
-{
-    [
-        #([runtime.Integer64(0xffffffff), runtime.Integer64(0xffffffff)], runtime.true_),
-        #([runtime.Integer64(0xffffffff), runtime.Integer64(0xfffffffe)], runtime.true_),
-        #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.true_),
-        #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.true_),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
-        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.false_),
-        #([runtime.Integer64(0xfffffffe), runtime.Integer64(0xffffffff)], runtime.false_),
-    ]
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.i64_ge_u(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn i64_comparison___signed_overflow_error___test()
+pub fn float_comparison___nan___test()
 {
     let test_functions =
     [
-        #("machine.i64_lt_s", machine.i64_lt_s),
-        #("machine.i64_gt_s", machine.i64_gt_s),
-        #("machine.i64_le_s", machine.i64_le_s),
-        #("machine.i64_ge_s", machine.i64_ge_s)
+        #("machine.float_lt", machine.float_lt),
+        #("machine.float_gt", machine.float_gt),
+        #("machine.float_le", machine.float_le),
+        #("machine.float_ge", machine.float_ge)
     ]
     
     let test_values =
     [
-        #(runtime.Integer64(0x8000000000000000), runtime.Integer64(0x8000000000000000)),
-        #(runtime.Integer64(0), runtime.Integer64(0x8000000000000000)),
-        #(runtime.Integer64(0x8000000000000000), runtime.Integer64(0)),
-        #(runtime.Integer64(0x8000000000000001 * -1), runtime.Integer64(0)),
-        #(runtime.Integer64(0), runtime.Integer64(0x8000000000000001 * -1)),
+        #(
+            types.Float32,
+            [
+                [runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.NaN)],
+                [runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.NaN)],
+                [runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.Finite(1.0))],
+                [runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.NaN)],
+                [runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.Infinite(runtime.Positive))],
+                [runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.NaN)],
+                [runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.Infinite(runtime.Negative))],
+            ]
+        )
     ]
 
-    test_functions
-    |> list.each(
-        fn (function)
-        {
-            test_values
-            |> list.each(
-                fn (value)
-                {
-                    io.println(string.inspect(function.0))
-                    io.println(string.inspect(value))
+    list.each(test_functions, fn (function) {
+        list.each(test_values, fn (tst_val) {
+            list.each(tst_val.1, fn (val) {
+                io.println(string.inspect(function.0))
+                io.println(string.inspect(tst_val.0))
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(val, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = function.1(state, tst_val.0) |> should.be_ok
 
-                    let state = create_empty_state()
-                    let stack = stack.push(to: state.stack, push: [stack.ValueEntry(value.0), stack.ValueEntry(value.1)])
-                    let state = machine.MachineState(..state, stack: stack)
-
-                    function.1(state)
-                    |> should.be_error
-                    |> should.equal("gwr/execution/machine.signed_integer_overflow_check: signed integer overflow")
-                }
-            )
-        }
-    )
-}
-
-pub fn i64_comparison___unsigned_overflow_error___test()
-{
-    let test_functions =
-    [
-        #("machine.i64_lt_u", machine.i64_lt_u),
-        #("machine.i64_gt_u", machine.i64_gt_u),
-        #("machine.i64_le_u", machine.i64_le_u),
-        #("machine.i64_ge_u", machine.i64_ge_u)
-    ]
-    
-    let test_values =
-    [
-        #(runtime.Integer64(0x10000000000000000), runtime.Integer64(0x10000000000000000)),
-        #(runtime.Integer64(-1), runtime.Integer64(0x10000000000000000)),
-        #(runtime.Integer64(0x10000000000000000), runtime.Integer64(-1)),
-        #(runtime.Integer64(0x10000000000000000), runtime.Integer64(0)),
-        #(runtime.Integer64(0), runtime.Integer64(0x10000000000000000)),
-        #(runtime.Integer64(0), runtime.Integer64(-1)),
-        #(runtime.Integer64(-1), runtime.Integer64(0))
-    ]
-
-    test_functions
-    |> list.each(
-        fn (function)
-        {
-            test_values
-            |> list.each(
-                fn (value)
-                {
-                    io.println(string.inspect(function.0))
-                    io.println(string.inspect(value))
-
-                    let state = create_empty_state()
-                    let stack = stack.push(to: state.stack, push: [stack.ValueEntry(value.0), stack.ValueEntry(value.1)])
-                    let state = machine.MachineState(..state, stack: stack)
-
-                    function.1(state)
-                    |> should.be_error
-                    |> should.equal("gwr/execution/machine.unsigned_integer_overflow_check: unsigned integer overflow")
-                }
-            )
-        }
-    )
-}
-
-const f32_nan_tests =
-[
-    #([runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.NaN)],                        runtime.false_),
-    #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.NaN)],                        runtime.false_),
-    #([runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
-    #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.NaN)],                        runtime.false_),
-    #([runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.false_),
-    #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.NaN)],                        runtime.false_),
-    #([runtime.Float32(runtime.NaN),                        runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.false_),
-]
-
-pub fn f32_eq_test()
-{
-    [
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
-        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
-        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.false_)
-    ]
-    |> list.append(f32_nan_tests)
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.f32_eq(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn f32_ne_test()
-{
-    [
-        #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
-        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.false_),
-        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.false_)
-    ]
-    |> list.append(f32_nan_tests)
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.f32_ne(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn f32_lt_test()
-{
-    [
-        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.true_),
-        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.true_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
-        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
-        #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.false_),
-        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
-        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.false_),
-        #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.false_),
-    ]
-    |> list.append(f32_nan_tests)
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.f32_lt(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn f32_gt_test()
-{
-    [
-        #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
-        #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
-        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
-        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.false_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
-        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
-        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.false_)
-    ]
-    |> list.append(f32_nan_tests)
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.f32_gt(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn f32_le_test()
-{
-    [
-        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
-        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.true_),
-        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.true_),
-        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
-        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
-        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
-        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
-        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
-        #([runtime.Float32(runtime.Finite(-65537.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
-        #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.false_),
-        #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.false_),
-        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.false_),
-        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65537.0))],           runtime.false_),
-    ]
-    |> list.append(f32_nan_tests)
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.f32_le(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
-}
-
-pub fn f32_ge_test()
-{
-    [
-        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
-        #([runtime.Float32(runtime.Infinite(runtime.Positive)), runtime.Float32(runtime.Infinite(runtime.Negative))], runtime.true_),
-        #([runtime.Float32(runtime.Finite(65537.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
-        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65536.0))],            runtime.true_),
-        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.true_),
-        #([runtime.Float32(runtime.Finite(1.0)),                runtime.Float32(runtime.Finite(0.0))],                runtime.true_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
-        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(-1.0))],               runtime.true_),
-        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.true_),
-        #([runtime.Float32(runtime.Finite(-65536.0)),           runtime.Float32(runtime.Finite(-65537.0))],           runtime.true_),
-
-        #([runtime.Float32(runtime.Infinite(runtime.Negative)), runtime.Float32(runtime.Infinite(runtime.Positive))], runtime.false_),
-        #([runtime.Float32(runtime.Finite(65536.0)),            runtime.Float32(runtime.Finite(65537.0))],            runtime.false_),
-        #([runtime.Float32(runtime.Finite(0.0)),                runtime.Float32(runtime.Finite(1.0))],                runtime.false_),
-        #([runtime.Float32(runtime.Finite(-1.0)),               runtime.Float32(runtime.Finite(0.0))],                runtime.false_),
-        #([runtime.Float32(runtime.Finite(-65537.0)),           runtime.Float32(runtime.Finite(-65536.0))],           runtime.false_),
-    ]
-    |> list.append(f32_nan_tests)
-    |> list.each(
-        fn (test_case)
-        {
-            let state = create_empty_state()
-            let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
-            let state = machine.MachineState(..state, stack: stack)
-            let state = machine.f32_ge(state) |> should.be_ok
-
-            stack.peek(state.stack)
-            |> should.be_some
-            |> should.equal(stack.ValueEntry(test_case.1))
-        }
-    )
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(runtime.false_))
+            })
+        })
+    })
 }
 
 pub fn i32_add_test()

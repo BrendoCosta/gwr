@@ -227,38 +227,38 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                 case instruction
                 {
                     instruction.End -> Ok(current_state)
-                    instruction.I32Const(value) -> i32_const(current_state, value)
-                    instruction.I64Const(value) -> i64_const(current_state, value)
-                    instruction.F32Const(value) -> f32_const(current_state, value)
-                    instruction.F64Const(value) -> f64_const(current_state, value)
-                    instruction.I32Eqz -> i32_eqz(current_state)
-                    instruction.I32Eq  -> i32_eq(current_state)
-                    instruction.I32Ne  -> i32_ne(current_state)
-                    instruction.I32LtS -> i32_lt_s(current_state)
-                    instruction.I32LtU -> i32_lt_u(current_state)
-                    instruction.I32GtS -> i32_gt_s(current_state)
-                    instruction.I32GtU -> i32_gt_u(current_state)
-                    instruction.I32LeS -> i32_le_s(current_state)
-                    instruction.I32LeU -> i32_le_u(current_state)
-                    instruction.I32GeS -> i32_ge_s(current_state)
-                    instruction.I32GeU -> i32_ge_u(current_state)
-                    instruction.I64Eqz -> i64_eqz(current_state)
-                    instruction.I64Eq  -> i64_eq(current_state)
-                    instruction.I64Ne  -> i64_ne(current_state)
-                    instruction.I64LtS -> i64_lt_s(current_state)
-                    instruction.I64LtU -> i64_lt_u(current_state)
-                    instruction.I64GtS -> i64_gt_s(current_state)
-                    instruction.I64GtU -> i64_gt_u(current_state)
-                    instruction.I64LeS -> i64_le_s(current_state)
-                    instruction.I64LeU -> i64_le_u(current_state)
-                    instruction.I64GeS -> i64_ge_s(current_state)
-                    instruction.I64GeU -> i64_ge_u(current_state)
-                    instruction.F32Eq  -> f32_eq(current_state)
-                    instruction.F32Ne  -> f32_ne(current_state)
-                    instruction.F32Lt  -> f32_lt(current_state)
-                    instruction.F32Gt  -> f32_gt(current_state)
-                    instruction.F32Le  -> f32_le(current_state)
-                    instruction.F32Ge  -> f32_ge(current_state)
+                    instruction.I32Const(value) -> integer_const(current_state, types.Integer32, value)
+                    instruction.I64Const(value) -> integer_const(current_state, types.Integer64, value)
+                    instruction.F32Const(value) -> float_const(current_state, types.Float32, value)
+                    instruction.F64Const(value) -> float_const(current_state, types.Float64, value)
+                    instruction.I32Eqz -> integer_eqz(current_state, types.Integer32)
+                    instruction.I32Eq  -> integer_eq(current_state, types.Integer32)
+                    instruction.I32Ne  -> integer_ne(current_state, types.Integer32)
+                    instruction.I32LtS -> integer_lt_s(current_state, types.Integer32)
+                    instruction.I32LtU -> integer_lt_u(current_state, types.Integer32)
+                    instruction.I32GtS -> integer_gt_s(current_state, types.Integer32)
+                    instruction.I32GtU -> integer_gt_u(current_state, types.Integer32)
+                    instruction.I32LeS -> integer_le_s(current_state, types.Integer32)
+                    instruction.I32LeU -> integer_le_u(current_state, types.Integer32)
+                    instruction.I32GeS -> integer_ge_s(current_state, types.Integer32)
+                    instruction.I32GeU -> integer_ge_u(current_state, types.Integer32)
+                    instruction.I64Eqz -> integer_eqz(current_state, types.Integer64)
+                    instruction.I64Eq  -> integer_eq(current_state, types.Integer64)
+                    instruction.I64Ne  -> integer_ne(current_state, types.Integer64)
+                    instruction.I64LtS -> integer_lt_s(current_state, types.Integer64)
+                    instruction.I64LtU -> integer_lt_u(current_state, types.Integer64)
+                    instruction.I64GtS -> integer_gt_s(current_state, types.Integer64)
+                    instruction.I64GtU -> integer_gt_u(current_state, types.Integer64)
+                    instruction.I64LeS -> integer_le_s(current_state, types.Integer64)
+                    instruction.I64LeU -> integer_le_u(current_state, types.Integer64)
+                    instruction.I64GeS -> integer_ge_s(current_state, types.Integer64)
+                    instruction.I64GeU -> integer_ge_u(current_state, types.Integer64)
+                    instruction.F32Eq  -> float_eq(current_state, types.Float32)
+                    instruction.F32Ne  -> float_ne(current_state, types.Float32)
+                    instruction.F32Lt  -> float_lt(current_state, types.Float32)
+                    instruction.F32Gt  -> float_gt(current_state, types.Float32)
+                    instruction.F32Le  -> float_le(current_state, types.Float32)
+                    instruction.F32Ge  -> float_ge(current_state, types.Float32)
 
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
@@ -314,12 +314,21 @@ pub fn binary_operation(state: MachineState, type_: types.NumberType, operation_
                 use b <- result.try(runtime.builtin_float_to_ieee_float(b))
                 handler(a, b)
             }
-            _, _, anything_else -> Error("gwr/execution/machine.binary_operation: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+            t, h, args -> Error("gwr/execution/machine.binary_operation: wrong operands type or handler for an instruction of type \"" <> string.inspect(t) <> "\": \"" <> string.inspect(h) <> "\" \"" <> string.inspect(args) <> "\"")
         }
     )
 
     let stack = stack.push(stack, [stack.ValueEntry(result)])
     Ok(MachineState(..state, stack: stack))
+}
+
+pub fn get_bitwidth(type_: types.NumberType) -> Int
+{
+    case type_
+    {
+        types.Integer32 | types.Float32 -> 32
+        types.Integer64 | types.Float64 -> 64
+    }
 }
 
 pub fn bool_to_i32_bool(value: Bool) -> runtime.Value
@@ -353,291 +362,213 @@ fn unsigned_integer_overflow_check(value: Int, bits: Int) -> Result(Int, String)
     }
 }
 
-pub fn i32_const(state: MachineState, value: Int) -> Result(MachineState, String)
+pub fn integer_const(state: MachineState, type_: types.NumberType, value: Int) -> Result(MachineState, String)
 {
-    let stack = stack.push(state.stack, [stack.ValueEntry(runtime.Integer32(value))])
+    use entry <- result.try(
+        case type_
+        {
+            types.Integer32 -> Ok(runtime.Integer32(value))
+            types.Integer64 -> Ok(runtime.Integer64(value))
+            anything_else -> Error("gwr/execution/machine.integer_const: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+        }
+    )
+    let stack = stack.push(state.stack, [stack.ValueEntry(entry)])
     Ok(MachineState(..state, stack: stack))
 }
 
-pub fn i64_const(state: MachineState, value: Int) -> Result(MachineState, String)
-{
-    let stack = stack.push(state.stack, [stack.ValueEntry(runtime.Integer64(value))])
-    Ok(MachineState(..state, stack: stack))
-}
-
-pub fn f32_const(state: MachineState, value: ieee_float.IEEEFloat) -> Result(MachineState, String)
-{
-    use built_in_float <- result.try(runtime.ieee_float_to_builtin_float(value))
-    let stack = stack.push(state.stack, [stack.ValueEntry(runtime.Float32(built_in_float))])
-    Ok(MachineState(..state, stack: stack))
-}
-
-pub fn f64_const(state: MachineState, value: ieee_float.IEEEFloat) -> Result(MachineState, String)
+pub fn float_const(state: MachineState, type_: types.NumberType, value: ieee_float.IEEEFloat) -> Result(MachineState, String)
 {
     use built_in_float <- result.try(runtime.ieee_float_to_builtin_float(value))
-    let stack = stack.push(state.stack, [stack.ValueEntry(runtime.Float64(built_in_float))])
+    use entry <- result.try(
+        case type_
+        {
+            types.Float32 -> Ok(runtime.Float32(built_in_float))
+            types.Float64 -> Ok(runtime.Float64(built_in_float))
+            anything_else -> Error("gwr/execution/machine.float_const: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+        }
+    )
+    let stack = stack.push(state.stack, [stack.ValueEntry(entry)])
     Ok(MachineState(..state, stack: stack))
 }
 
-pub fn i32_eqz(state: MachineState) -> Result(MachineState, String)
+pub fn integer_eqz(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
     let #(stack, entry) = stack.pop(state.stack)
     use result <- result.try(
-        case entry
+        case type_, entry
         {
-            option.Some(stack.ValueEntry(runtime.Integer32(value: 0))) -> Ok(stack.ValueEntry(runtime.true_))
-            option.Some(stack.ValueEntry(runtime.Integer32(value: _))) -> Ok(stack.ValueEntry(runtime.false_))
-            anything_else -> Error("gwr/execution/machine.i32_eqz: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+            types.Integer32, option.Some(stack.ValueEntry(runtime.Integer32(value: 0)))
+            | types.Integer64, option.Some(stack.ValueEntry(runtime.Integer64(value: 0))) -> Ok(stack.ValueEntry(runtime.true_))
+
+            types.Integer32, option.Some(stack.ValueEntry(runtime.Integer32(value: _)))
+            | types.Integer64, option.Some(stack.ValueEntry(runtime.Integer64(value: _))) -> Ok(stack.ValueEntry(runtime.false_))
+
+            _, anything_else -> Error("gwr/execution/machine.integer_eqz: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
         }
     )
     let stack = stack.push(state.stack, [result])
     Ok(MachineState(..state, stack: stack))
 }
 
-pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
+pub fn integer_eq(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) { Ok(bool_to_i32_bool(a == b)) }))
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) { Ok(bool_to_i32_bool(a == b)) }))
 }
 
-pub fn i32_ne(state: MachineState) -> Result(MachineState, String)
+pub fn integer_ne(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) { Ok(bool_to_i32_bool(a != b)) }))
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) { Ok(bool_to_i32_bool(a != b)) }))
 }
 
-pub fn i32_lt_s(state: MachineState) -> Result(MachineState, String)
+pub fn integer_lt_s(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
-            use a <- result.try(signed_integer_overflow_check(a, 32))
-            use b <- result.try(signed_integer_overflow_check(b, 32))
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) {
+            use a <- result.try(signed_integer_overflow_check(a, get_bitwidth(type_)))
+            use b <- result.try(signed_integer_overflow_check(b, get_bitwidth(type_)))
             Ok(bool_to_i32_bool(a < b))
         })
     )
 }
 
-pub fn i32_lt_u(state: MachineState) -> Result(MachineState, String)
+pub fn integer_lt_u(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(unsigned_integer_overflow_check(a, 32))
-        use b <- result.try(unsigned_integer_overflow_check(b, 32))
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, get_bitwidth(type_)))
+        use b <- result.try(unsigned_integer_overflow_check(b, get_bitwidth(type_)))
         Ok(bool_to_i32_bool(a < b))
     }))
 }
 
-pub fn i32_gt_s(state: MachineState) -> Result(MachineState, String)
+pub fn integer_gt_s(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(signed_integer_overflow_check(a, 32))
-        use b <- result.try(signed_integer_overflow_check(b, 32))
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, get_bitwidth(type_)))
+        use b <- result.try(signed_integer_overflow_check(b, get_bitwidth(type_)))
         Ok(bool_to_i32_bool(a > b))
     }))
 }
 
-pub fn i32_gt_u(state: MachineState) -> Result(MachineState, String)
+pub fn integer_gt_u(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(unsigned_integer_overflow_check(a, 32))
-        use b <- result.try(unsigned_integer_overflow_check(b, 32))
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, get_bitwidth(type_)))
+        use b <- result.try(unsigned_integer_overflow_check(b, get_bitwidth(type_)))
         Ok(bool_to_i32_bool(a > b))
     }))
 }
 
-pub fn i32_le_s(state: MachineState) -> Result(MachineState, String)
+pub fn integer_le_s(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(signed_integer_overflow_check(a, 32))
-        use b <- result.try(signed_integer_overflow_check(b, 32))
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, get_bitwidth(type_)))
+        use b <- result.try(signed_integer_overflow_check(b, get_bitwidth(type_)))
         Ok(bool_to_i32_bool(a <= b))
     }))
 }
 
-pub fn i32_le_u(state: MachineState) -> Result(MachineState, String)
+pub fn integer_le_u(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(unsigned_integer_overflow_check(a, 32))
-        use b <- result.try(unsigned_integer_overflow_check(b, 32))
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, get_bitwidth(type_)))
+        use b <- result.try(unsigned_integer_overflow_check(b, get_bitwidth(type_)))
         Ok(bool_to_i32_bool(a <= b))
     }))
 }
 
-pub fn i32_ge_s(state: MachineState) -> Result(MachineState, String)
+pub fn integer_ge_s(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(signed_integer_overflow_check(a, 32))
-        use b <- result.try(signed_integer_overflow_check(b, 32))
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, get_bitwidth(type_)))
+        use b <- result.try(signed_integer_overflow_check(b, get_bitwidth(type_)))
         Ok(bool_to_i32_bool(a >= b))
     }))
 }
 
-pub fn i32_ge_u(state: MachineState) -> Result(MachineState, String)
+pub fn integer_ge_u(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(unsigned_integer_overflow_check(a, 32))
-        use b <- result.try(unsigned_integer_overflow_check(b, 32))
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, get_bitwidth(type_)))
+        use b <- result.try(unsigned_integer_overflow_check(b, get_bitwidth(type_)))
         Ok(bool_to_i32_bool(a >= b))
     }))
 }
 
-pub fn i64_eqz(state: MachineState) -> Result(MachineState, String)
+pub fn float_eq(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    let #(stack, entry) = stack.pop(state.stack)
-    use result <- result.try(
-        case entry
-        {
-            option.Some(stack.ValueEntry(runtime.Integer64(value: 0))) -> Ok(stack.ValueEntry(runtime.true_))
-            option.Some(stack.ValueEntry(runtime.Integer64(value: _))) -> Ok(stack.ValueEntry(runtime.false_))
-            anything_else -> Error("gwr/execution/machine.i64_eqz: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
-        }
-    )
-    let stack = stack.push(state.stack, [result])
-    Ok(MachineState(..state, stack: stack))
-}
-
-pub fn i64_eq(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) { Ok(bool_to_i32_bool(a == b)) }))
-}
-
-pub fn i64_ne(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) { Ok(bool_to_i32_bool(a != b)) }))
-}
-
-pub fn i64_lt_s(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(signed_integer_overflow_check(a, 64))
-        use b <- result.try(signed_integer_overflow_check(b, 64))
-        Ok(bool_to_i32_bool(a < b))
+    binary_operation(state, type_, FloatBinaryOperation(fn (a, b) {
+        Ok(bool_to_i32_bool(
+            case ieee_float.compare(a, b)
+            {
+                Ok(order.Eq) -> True
+                _ -> False
+            }
+        ))
     }))
 }
 
-pub fn i64_lt_u(state: MachineState) -> Result(MachineState, String)
+pub fn float_ne(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(unsigned_integer_overflow_check(a, 64))
-        use b <- result.try(unsigned_integer_overflow_check(b, 64))
-        Ok(bool_to_i32_bool(a < b))
+    binary_operation(state, type_, FloatBinaryOperation(fn (a, b) {
+        Ok(bool_to_i32_bool(
+            case ieee_float.compare(a, b)
+            {
+                Ok(order.Eq) -> False
+                Error(Nil) -> False
+                _ -> True
+            }
+        ))
     }))
 }
 
-pub fn i64_gt_s(state: MachineState) -> Result(MachineState, String)
+pub fn float_lt(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(signed_integer_overflow_check(a, 64))
-        use b <- result.try(signed_integer_overflow_check(b, 64))
-        Ok(bool_to_i32_bool(a > b))
+    binary_operation(state, type_, FloatBinaryOperation(fn (a, b) {
+        Ok(bool_to_i32_bool(
+            case ieee_float.compare(a, b)
+            {
+                Ok(order.Lt) -> True
+                _ -> False
+            }
+        ))
     }))
 }
 
-pub fn i64_gt_u(state: MachineState) -> Result(MachineState, String)
+pub fn float_gt(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(unsigned_integer_overflow_check(a, 64))
-        use b <- result.try(unsigned_integer_overflow_check(b, 64))
-        Ok(bool_to_i32_bool(a > b))
+    binary_operation(state, type_, FloatBinaryOperation(fn (a, b) {
+        Ok(bool_to_i32_bool(
+            case ieee_float.compare(a, b)
+            {
+                Ok(order.Gt) -> True
+                _ -> False
+            }
+        ))
     }))
 }
 
-pub fn i64_le_s(state: MachineState) -> Result(MachineState, String)
+pub fn float_le(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(signed_integer_overflow_check(a, 64))
-        use b <- result.try(signed_integer_overflow_check(b, 64))
-        Ok(bool_to_i32_bool(a <= b))
+    binary_operation(state, type_, FloatBinaryOperation(fn (a, b) {
+        Ok(bool_to_i32_bool(
+            case ieee_float.compare(a, b)
+            {
+                Ok(order.Lt) | Ok(order.Eq) -> True
+                _ -> False
+            }
+        ))
     }))
 }
 
-pub fn i64_le_u(state: MachineState) -> Result(MachineState, String)
+pub fn float_ge(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(unsigned_integer_overflow_check(a, 64))
-        use b <- result.try(unsigned_integer_overflow_check(b, 64))
-        Ok(bool_to_i32_bool(a <= b))
-    }))
-}
-
-pub fn i64_ge_s(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(signed_integer_overflow_check(a, 64))
-        use b <- result.try(signed_integer_overflow_check(b, 64))
-        Ok(bool_to_i32_bool(a >= b))
-    }))
-}
-
-pub fn i64_ge_u(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
-        use a <- result.try(unsigned_integer_overflow_check(a, 64))
-        use b <- result.try(unsigned_integer_overflow_check(b, 64))
-        Ok(bool_to_i32_bool(a >= b))
-    }))
-}
-
-pub fn f32_eq(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
-        case ieee_float.compare(a, b)
-        {
-            Ok(order.Eq) -> Ok(runtime.true_)
-            _ -> Ok(runtime.false_)
-        }
-    }))
-}
-
-pub fn f32_ne(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
-        case ieee_float.compare(a, b)
-        {
-            Ok(order.Eq) -> Ok(runtime.false_)
-            Error(Nil) -> Ok(runtime.false_)
-            _ -> Ok(runtime.true_)
-        }
-    }))
-}
-
-pub fn f32_lt(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
-        case ieee_float.compare(a, b)
-        {
-            Ok(order.Lt) -> Ok(runtime.true_)
-            _ -> Ok(runtime.false_)
-        }
-    }))
-}
-
-pub fn f32_gt(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
-        case ieee_float.compare(a, b)
-        {
-            Ok(order.Gt) -> Ok(runtime.true_)
-            _ -> Ok(runtime.false_)
-        }
-    }))
-}
-
-pub fn f32_le(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
-        case ieee_float.compare(a, b)
-        {
-            Ok(order.Lt) | Ok(order.Eq) -> Ok(runtime.true_)
-            _ -> Ok(runtime.false_)
-        }
-    }))
-}
-
-pub fn f32_ge(state: MachineState) -> Result(MachineState, String)
-{
-    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
-        case ieee_float.compare(a, b)
-        {
-            Ok(order.Gt) | Ok(order.Eq) -> Ok(runtime.true_)
-            _ -> Ok(runtime.false_)
-        }
+    binary_operation(state, type_, FloatBinaryOperation(fn (a, b) {
+        Ok(bool_to_i32_bool(
+            case ieee_float.compare(a, b)
+            {
+                Ok(order.Gt) | Ok(order.Eq) -> True
+                _ -> False
+            }
+        ))
     }))
 }
 
