@@ -9,6 +9,7 @@ import gwr/execution/store
 
 import gleeunit
 import gleeunit/should
+import ieee_float
 
 pub fn main()
 {
@@ -52,6 +53,42 @@ fn create_empty_state() -> machine.MachineState
         ),
         stack: stack.create()
     )
+}
+
+pub fn i32_const_test()
+{
+    let state = machine.i32_const(create_empty_state(), 65536) |> should.be_ok
+    
+    stack.peek(state.stack)
+    |> should.be_some
+    |> should.equal(stack.ValueEntry(runtime.Integer32(65536)))
+}
+
+pub fn i64_const_test()
+{
+    let state = machine.i64_const(create_empty_state(), 65536) |> should.be_ok
+    
+    stack.peek(state.stack)
+    |> should.be_some
+    |> should.equal(stack.ValueEntry(runtime.Integer64(65536)))
+}
+
+pub fn f32_const_test()
+{
+    let state = machine.f32_const(create_empty_state(), ieee_float.finite(65536.0)) |> should.be_ok
+    
+    stack.peek(state.stack)
+    |> should.be_some
+    |> should.equal(stack.ValueEntry(runtime.Float32(runtime.Finite(65536.0))))
+}
+
+pub fn f64_const_test()
+{
+    let state = machine.f64_const(create_empty_state(), ieee_float.finite(65536.0)) |> should.be_ok
+    
+    stack.peek(state.stack)
+    |> should.be_some
+    |> should.equal(stack.ValueEntry(runtime.Float64(runtime.Finite(65536.0))))
 }
 
 pub fn i32_eqz_test()
@@ -779,15 +816,6 @@ pub fn i32_add_test()
     stack.peek(state.stack)
     |> should.be_some
     |> should.equal(stack.ValueEntry(runtime.Integer32(10)))
-}
-
-pub fn i32_const_test()
-{
-    let state = machine.i32_const(create_empty_state(), 65536) |> should.be_ok
-    
-    stack.peek(state.stack)
-    |> should.be_some
-    |> should.equal(stack.ValueEntry(runtime.Integer32(65536)))
 }
 
 pub fn local_get_test()
