@@ -4,7 +4,6 @@ import gleam/list
 import gleam/result
 import gleam/string
 import gleam/option
-import gleam/order
 
 import gwr/execution/runtime
 import gwr/execution/stack
@@ -15,8 +14,6 @@ import gwr/syntax/module
 import gwr/syntax/types
 
 import ieee_float
-import ranged_int/builtin/int32
-import ranged_int/builtin/uint32
 
 /// A configuration consists of the current store and an executing thread.
 ///
@@ -316,7 +313,7 @@ pub fn i32_eqz(state: MachineState) -> Result(MachineState, String)
     Ok(MachineState(..state, stack: stack))
 }
 
-pub fn i32_comparison(state: MachineState, comparison_function: fn (Int, Int) -> Result(Bool, String)) -> Result(MachineState, String)
+pub fn i32_binary_operation(state: MachineState, operation: fn (Int, Int) -> Result(runtime.Value, String)) -> Result(MachineState, String)
 {
     let #(stack, values) = stack.pop_repeat(state.stack, 2)
     use result <- result.try(
@@ -324,14 +321,9 @@ pub fn i32_comparison(state: MachineState, comparison_function: fn (Int, Int) ->
         {
             [stack.ValueEntry(runtime.Integer32(value: b)), stack.ValueEntry(runtime.Integer32(value: a))] ->
             {
-                case comparison_function(a, b)
-                {
-                    Ok(True) -> Ok(runtime.true_)
-                    Ok(False) -> Ok(runtime.false_)
-                    Error(reason) -> Error("gwr/execution/machine.i32_comparison: couldn't compare operands: " <> reason)
-                }
+                operation(a, b)
             }
-            anything_else -> Error("gwr/execution/machine.i32_comparison: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+            anything_else -> Error("gwr/execution/machine.i32_binary_operation: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
         }
     )
 
@@ -339,124 +331,116 @@ pub fn i32_comparison(state: MachineState, comparison_function: fn (Int, Int) ->
     Ok(MachineState(..state, stack: stack))
 }
 
-fn unwrap_integers(op1: a, op2: a, func: fn (a) -> Result(b, c))
+pub fn bool_to_i32_bool(value: Bool) -> runtime.Value
 {
-    use #(op1, op2) <- result.try(
-        result.replace_error(
-            {
-                use a <- result.try(func(op1))
-                use b <- result.try(func(op2))
-                Ok(#(a, b))
-            },
-            "gwr/execution/machine.unwrap_integers: overflow"
-        )
-    )
-    Ok(#(op1, op2))
+    case value
+    {
+        True -> runtime.true_
+        False -> runtime.false_
+    }
+}
+
+fn signed_integer_overflow_check(value: Int, bits: Int) -> Result(Int, String)
+{
+    case bits, value
+    {
+        32, v if v >= -2_147_483_648 && v <= 2_147_483_647 -> Ok(v)
+        64, v if v >= -9_223_372_036_854_775_808 && v <= 9_223_372_036_854_775_807 -> Ok(v)
+        b, _ if b != 32 && b != 64 -> Error("gwr/execution/machine.signed_integer_overflow_check: unsupported bit width \"" <> int.to_string(b) <> "\"")
+        _, _ -> Error("gwr/execution/machine.signed_integer_overflow_check: signed integer overflow")
+    }
+}
+
+fn unsigned_integer_overflow_check(value: Int, bits: Int) -> Result(Int, String)
+{
+    case bits, value
+    {
+        32, v if v >= 0 && v <= 4_294_967_295 -> Ok(v)
+        64, v if v >= 0 && v <= 18_446_744_073_709_551_615 -> Ok(v)
+        b, _ if b != 32 && b != 64 -> Error("gwr/execution/machine.unsigned_integer_overflow_check: unsupported bit width \"" <> int.to_string(b) <> "\"")
+        _, _ -> Error("gwr/execution/machine.unsigned_integer_overflow_check: unsigned integer overflow")
+    }
 }
 
 pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) { Ok(a == b) })
+    i32_binary_operation(state, fn (a, b) { Ok(bool_to_i32_bool(a == b)) })
 }
 
 pub fn i32_ne(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) { Ok(a != b) })
+    i32_binary_operation(state, fn (a, b) { Ok(bool_to_i32_bool(a != b)) })
 }
 
 pub fn i32_lt_s(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(unwrap_integers(a, b, int32.from_int))
-        case int32.compare(a, b)
-        {
-            order.Lt -> Ok(True)
-            _ -> Ok(False)
-        }
+    i32_binary_operation(state, fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, 32))
+        use b <- result.try(signed_integer_overflow_check(b, 32))
+        Ok(bool_to_i32_bool(a < b))
     })
 }
 
 pub fn i32_lt_u(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(unwrap_integers(a, b, uint32.from_int))
-        case uint32.compare(a, b)
-        {
-            order.Lt -> Ok(True)
-            _ -> Ok(False)
-        }
+    i32_binary_operation(state, fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, 32))
+        use b <- result.try(unsigned_integer_overflow_check(b, 32))
+        Ok(bool_to_i32_bool(a < b))
     })
 }
 
 pub fn i32_gt_s(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(unwrap_integers(a, b, int32.from_int))
-        case int32.compare(a, b)
-        {
-            order.Gt -> Ok(True)
-            _ -> Ok(False)
-        }
+    i32_binary_operation(state, fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, 32))
+        use b <- result.try(signed_integer_overflow_check(b, 32))
+        Ok(bool_to_i32_bool(a > b))
     })
 }
 
 pub fn i32_gt_u(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(unwrap_integers(a, b, uint32.from_int))
-        case uint32.compare(a, b)
-        {
-            order.Gt -> Ok(True)
-            _ -> Ok(False)
-        }
+    i32_binary_operation(state, fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, 32))
+        use b <- result.try(unsigned_integer_overflow_check(b, 32))
+        Ok(bool_to_i32_bool(a > b))
     })
 }
 
 pub fn i32_le_s(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(unwrap_integers(a, b, int32.from_int))
-        case int32.compare(a, b)
-        {
-            order.Lt | order.Eq -> Ok(True)
-            _ -> Ok(False)
-        }
+    i32_binary_operation(state, fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, 32))
+        use b <- result.try(signed_integer_overflow_check(b, 32))
+        Ok(bool_to_i32_bool(a <= b))
     })
 }
 
 pub fn i32_le_u(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(unwrap_integers(a, b, uint32.from_int))
-        case uint32.compare(a, b)
-        {
-            order.Lt | order.Eq -> Ok(True)
-            _ -> Ok(False)
-        }
+    i32_binary_operation(state, fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, 32))
+        use b <- result.try(unsigned_integer_overflow_check(b, 32))
+        Ok(bool_to_i32_bool(a <= b))
     })
 }
 
 pub fn i32_ge_s(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(unwrap_integers(a, b, int32.from_int))
-        case int32.compare(a, b)
-        {
-            order.Gt | order.Eq -> Ok(True)
-            _ -> Ok(False)
-        }
+    i32_binary_operation(state, fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, 32))
+        use b <- result.try(signed_integer_overflow_check(b, 32))
+        Ok(bool_to_i32_bool(a >= b))
     })
 }
 
 pub fn i32_ge_u(state: MachineState) -> Result(MachineState, String)
 {
-    i32_comparison(state, fn (a, b) {
-        use #(a, b) <- result.try(unwrap_integers(a, b, uint32.from_int))
-        case uint32.compare(a, b)
-        {
-            order.Gt | order.Eq -> Ok(True)
-            _ -> Ok(False)
-        }
+    i32_binary_operation(state, fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, 32))
+        use b <- result.try(unsigned_integer_overflow_check(b, 32))
+        Ok(bool_to_i32_bool(a >= b))
     })
 }
 

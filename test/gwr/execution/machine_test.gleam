@@ -359,7 +359,7 @@ pub fn i32_comparison___signed_overflow_error___test()
 
                     function.1(state)
                     |> should.be_error
-                    |> should.equal("gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow")
+                    |> should.equal("gwr/execution/machine.signed_integer_overflow_check: signed integer overflow")
                 }
             )
         }
@@ -404,7 +404,7 @@ pub fn i32_comparison___unsigned_overflow_error___test()
 
                     function.1(state)
                     |> should.be_error
-                    |> should.equal("gwr/execution/machine.i32_comparison: couldn't compare operands: gwr/execution/machine.unwrap_integers: overflow")
+                    |> should.equal("gwr/execution/machine.unsigned_integer_overflow_check: unsigned integer overflow")
                 }
             )
         }
