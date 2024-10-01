@@ -319,21 +319,32 @@ pub fn i64_binary_operation(state: MachineState, operation: fn (Int, Int) -> Res
     Ok(MachineState(..state, stack: stack))
 }
 
+pub fn f32_binary_operation(state: MachineState, operation: fn (ieee_float.IEEEFloat, ieee_float.IEEEFloat) -> Result(runtime.Value, String)) -> Result(MachineState, String)
+{
+    let #(stack, values) = stack.pop_repeat(state.stack, 2)
+    use result <- result.try(
+        case option.values(values)
+        {
+            [stack.ValueEntry(runtime.Float32(value: b)), stack.ValueEntry(runtime.Float32(value: a))] ->
+            {
+                use a <- result.try(runtime.builtin_float_to_ieee_float(a))
+                use b <- result.try(runtime.builtin_float_to_ieee_float(b))
+                operation(a, b)
+            }
+            anything_else -> Error("gwr/execution/machine.f32_binary_operation: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+        }
+    )
+
+    let stack = stack.push(stack, [stack.ValueEntry(result)])
+    Ok(MachineState(..state, stack: stack))
+}
+
 pub fn bool_to_i32_bool(value: Bool) -> runtime.Value
 {
     case value
     {
-        True -> runtime.i32_true
-        False -> runtime.i32_false
-    }
-}
-
-pub fn bool_to_i64_bool(value: Bool) -> runtime.Value
-{
-    case value
-    {
-        True -> runtime.i64_true
-        False -> runtime.i64_false
+        True -> runtime.true_
+        False -> runtime.false_
     }
 }
 
@@ -391,8 +402,8 @@ pub fn i32_eqz(state: MachineState) -> Result(MachineState, String)
     use result <- result.try(
         case entry
         {
-            option.Some(stack.ValueEntry(runtime.Integer32(value: 0))) -> Ok(stack.ValueEntry(runtime.i32_true))
-            option.Some(stack.ValueEntry(runtime.Integer32(value: _))) -> Ok(stack.ValueEntry(runtime.i32_false))
+            option.Some(stack.ValueEntry(runtime.Integer32(value: 0))) -> Ok(stack.ValueEntry(runtime.true_))
+            option.Some(stack.ValueEntry(runtime.Integer32(value: _))) -> Ok(stack.ValueEntry(runtime.false_))
             anything_else -> Error("gwr/execution/machine.i32_eqz: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
         }
     )
@@ -488,8 +499,8 @@ pub fn i64_eqz(state: MachineState) -> Result(MachineState, String)
     use result <- result.try(
         case entry
         {
-            option.Some(stack.ValueEntry(runtime.Integer64(value: 0))) -> Ok(stack.ValueEntry(runtime.i64_true))
-            option.Some(stack.ValueEntry(runtime.Integer64(value: _))) -> Ok(stack.ValueEntry(runtime.i64_false))
+            option.Some(stack.ValueEntry(runtime.Integer64(value: 0))) -> Ok(stack.ValueEntry(runtime.true_))
+            option.Some(stack.ValueEntry(runtime.Integer64(value: _))) -> Ok(stack.ValueEntry(runtime.false_))
             anything_else -> Error("gwr/execution/machine.i64_eqz: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
         }
     )
@@ -499,12 +510,12 @@ pub fn i64_eqz(state: MachineState) -> Result(MachineState, String)
 
 pub fn i64_eq(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) { Ok(bool_to_i64_bool(a == b)) })
+    i64_binary_operation(state, fn (a, b) { Ok(bool_to_i32_bool(a == b)) })
 }
 
 pub fn i64_ne(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) { Ok(bool_to_i64_bool(a != b)) })
+    i64_binary_operation(state, fn (a, b) { Ok(bool_to_i32_bool(a != b)) })
 }
 
 pub fn i64_lt_s(state: MachineState) -> Result(MachineState, String)
@@ -512,7 +523,7 @@ pub fn i64_lt_s(state: MachineState) -> Result(MachineState, String)
     i64_binary_operation(state, fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 64))
         use b <- result.try(signed_integer_overflow_check(b, 64))
-        Ok(bool_to_i64_bool(a < b))
+        Ok(bool_to_i32_bool(a < b))
     })
 }
 
@@ -521,7 +532,7 @@ pub fn i64_lt_u(state: MachineState) -> Result(MachineState, String)
     i64_binary_operation(state, fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 64))
         use b <- result.try(unsigned_integer_overflow_check(b, 64))
-        Ok(bool_to_i64_bool(a < b))
+        Ok(bool_to_i32_bool(a < b))
     })
 }
 
@@ -530,7 +541,7 @@ pub fn i64_gt_s(state: MachineState) -> Result(MachineState, String)
     i64_binary_operation(state, fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 64))
         use b <- result.try(signed_integer_overflow_check(b, 64))
-        Ok(bool_to_i64_bool(a > b))
+        Ok(bool_to_i32_bool(a > b))
     })
 }
 
@@ -539,7 +550,7 @@ pub fn i64_gt_u(state: MachineState) -> Result(MachineState, String)
     i64_binary_operation(state, fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 64))
         use b <- result.try(unsigned_integer_overflow_check(b, 64))
-        Ok(bool_to_i64_bool(a > b))
+        Ok(bool_to_i32_bool(a > b))
     })
 }
 
@@ -548,7 +559,7 @@ pub fn i64_le_s(state: MachineState) -> Result(MachineState, String)
     i64_binary_operation(state, fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 64))
         use b <- result.try(signed_integer_overflow_check(b, 64))
-        Ok(bool_to_i64_bool(a <= b))
+        Ok(bool_to_i32_bool(a <= b))
     })
 }
 
@@ -557,7 +568,7 @@ pub fn i64_le_u(state: MachineState) -> Result(MachineState, String)
     i64_binary_operation(state, fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 64))
         use b <- result.try(unsigned_integer_overflow_check(b, 64))
-        Ok(bool_to_i64_bool(a <= b))
+        Ok(bool_to_i32_bool(a <= b))
     })
 }
 
@@ -566,7 +577,7 @@ pub fn i64_ge_s(state: MachineState) -> Result(MachineState, String)
     i64_binary_operation(state, fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 64))
         use b <- result.try(signed_integer_overflow_check(b, 64))
-        Ok(bool_to_i64_bool(a >= b))
+        Ok(bool_to_i32_bool(a >= b))
     })
 }
 
@@ -575,7 +586,7 @@ pub fn i64_ge_u(state: MachineState) -> Result(MachineState, String)
     i64_binary_operation(state, fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 64))
         use b <- result.try(unsigned_integer_overflow_check(b, 64))
-        Ok(bool_to_i64_bool(a >= b))
+        Ok(bool_to_i32_bool(a >= b))
     })
 }
 

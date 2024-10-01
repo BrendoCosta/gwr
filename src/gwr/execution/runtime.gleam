@@ -9,10 +9,8 @@ import gwr/syntax/value
 import ieee_float
 
 pub const memory_page_size = 65_536
-pub const i32_true = Integer32(1)
-pub const i32_false = Integer32(0)
-pub const i64_true = Integer64(1)
-pub const i64_false = Integer64(0)
+pub const true_ = Integer32(1)
+pub const false_ = Integer32(0)
 
 pub type ReferenceValueType
 {
@@ -187,5 +185,16 @@ pub fn ieee_float_to_builtin_float(value: ieee_float.IEEEFloat) -> Result(FloatV
                 _ -> Error("gwr/execution/runtime.ieee_float_to_builtin_float: unknown error")
             }
         }
+    }
+}
+
+pub fn builtin_float_to_ieee_float(value: FloatValue) -> Result(ieee_float.IEEEFloat, String)
+{
+    case value
+    {
+        Finite(v) -> Ok(ieee_float.finite(v))
+        Infinite(Positive) -> Ok(ieee_float.positive_infinity())
+        Infinite(Negative) -> Ok(ieee_float.negative_infinity())
+        NaN -> Ok(ieee_float.nan())
     }
 }

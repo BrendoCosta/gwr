@@ -94,10 +94,10 @@ pub fn f64_const_test()
 pub fn i32_eqz_test()
 {
     [
-        #(runtime.Integer32(0), runtime.i32_true),
-        #(runtime.Integer32(1), runtime.i32_false),
-        #(runtime.Integer32(-1), runtime.i32_false),
-        #(runtime.Integer32(65536), runtime.i32_false)
+        #(runtime.Integer32(0), runtime.true_),
+        #(runtime.Integer32(1), runtime.false_),
+        #(runtime.Integer32(-1), runtime.false_),
+        #(runtime.Integer32(65536), runtime.false_)
     ]
     |> list.each(
         fn (test_case)
@@ -117,11 +117,11 @@ pub fn i32_eqz_test()
 pub fn i32_eq_test()
 {
     [
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.i32_true),
-        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.i32_true),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.i32_false),
-        #([runtime.Integer32(0), runtime.Integer32(-1)], runtime.i32_false),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.i32_true)
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.false_),
+        #([runtime.Integer32(0), runtime.Integer32(-1)], runtime.false_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_)
     ]
     |> list.each(
         fn (test_case)
@@ -141,11 +141,11 @@ pub fn i32_eq_test()
 pub fn i32_ne_test()
 {
     [
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.i32_false),
-        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.i32_false),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.i32_true),
-        #([runtime.Integer32(0), runtime.Integer32(-1)], runtime.i32_true),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.i32_false)
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.false_),
+        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(-1)], runtime.true_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.false_)
     ]
     |> list.each(
         fn (test_case)
@@ -165,11 +165,11 @@ pub fn i32_ne_test()
 pub fn i32_lt_s_test()
 {
     [
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.i32_false),
-        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.i32_true),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.i32_true),
-        #([runtime.Integer32(-1), runtime.Integer32(0)], runtime.i32_true),
-        #([runtime.Integer32(-65536), runtime.Integer32(-1024)], runtime.i32_true)
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.true_),
+        #([runtime.Integer32(-1), runtime.Integer32(0)], runtime.true_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-1024)], runtime.true_)
     ]
     |> list.each(
         fn (test_case)
@@ -189,10 +189,10 @@ pub fn i32_lt_s_test()
 pub fn i32_lt_u_test()
 {
     [
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.i32_false),
-        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.i32_true),
-        #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.i32_false),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.i32_true)
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.false_),
+        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.true_)
     ]
     |> list.each(
         fn (test_case)
@@ -212,13 +212,13 @@ pub fn i32_lt_u_test()
 pub fn i32_gt_s_test()
 {
     [
-        #([runtime.Integer32(0x7fffffff), runtime.Integer32(65536)], runtime.i32_true),
-        #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.i32_true),
-        #([runtime.Integer32(-2), runtime.Integer32(-1024)], runtime.i32_true),
-        #([runtime.Integer32(0x7fffffff * -1), runtime.Integer32(0)], runtime.i32_false),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.i32_false),
-        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.i32_false),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.i32_false)
+        #([runtime.Integer32(0x7fffffff), runtime.Integer32(65536)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.true_),
+        #([runtime.Integer32(-2), runtime.Integer32(-1024)], runtime.true_),
+        #([runtime.Integer32(0x7fffffff * -1), runtime.Integer32(0)], runtime.false_),
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.false_),
+        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.false_)
     ]
     |> list.each(
         fn (test_case)
@@ -238,11 +238,11 @@ pub fn i32_gt_s_test()
 pub fn i32_gt_u_test()
 {
     [
-        #([runtime.Integer32(0xffffffff), runtime.Integer32(0x7fffffff)], runtime.i32_true),
-        #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.i32_true),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.i32_false),
-        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.i32_false),
-        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.i32_false)
+        #([runtime.Integer32(0xffffffff), runtime.Integer32(0x7fffffff)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(1024)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.false_),
+        #([runtime.Integer32(1024), runtime.Integer32(65536)], runtime.false_),
+        #([runtime.Integer32(0), runtime.Integer32(1)], runtime.false_)
     ]
     |> list.each(
         fn (test_case)
@@ -262,13 +262,13 @@ pub fn i32_gt_u_test()
 pub fn i32_le_s_test()
 {
     [
-        #([runtime.Integer32(0x7fffffff), runtime.Integer32(0x7fffffff)], runtime.i32_true),
-        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.i32_true),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.i32_true),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.i32_true),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65535)], runtime.i32_true),
-        #([runtime.Integer32(-65535), runtime.Integer32(-65536)], runtime.i32_false),
-        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.i32_false),
+        #([runtime.Integer32(0x7fffffff), runtime.Integer32(0x7fffffff)], runtime.true_),
+        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-65535)], runtime.true_),
+        #([runtime.Integer32(-65535), runtime.Integer32(-65536)], runtime.false_),
+        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.false_),
     ]
     |> list.each(
         fn (test_case)
@@ -288,10 +288,10 @@ pub fn i32_le_s_test()
 pub fn i32_le_u_test()
 {
     [
-        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xffffffff)], runtime.i32_true),
-        #([runtime.Integer32(0xfffffffe), runtime.Integer32(0xffffffff)], runtime.i32_true),
-        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.i32_true),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.i32_true)
+        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xffffffff)], runtime.true_),
+        #([runtime.Integer32(0xfffffffe), runtime.Integer32(0xffffffff)], runtime.true_),
+        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_)
     ]
     |> list.each(
         fn (test_case)
@@ -311,13 +311,13 @@ pub fn i32_le_u_test()
 pub fn i32_ge_s_test()
 {
     [
-        #([runtime.Integer32(0x7fffffff), runtime.Integer32(0x7fffffff)], runtime.i32_true),
-        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.i32_true),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.i32_true),
-        #([runtime.Integer32(-65535), runtime.Integer32(-65536)], runtime.i32_true),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.i32_true),
-        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.i32_false),
-        #([runtime.Integer32(-65536), runtime.Integer32(-65535)], runtime.i32_false),
+        #([runtime.Integer32(0x7fffffff), runtime.Integer32(0x7fffffff)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+        #([runtime.Integer32(-65535), runtime.Integer32(-65536)], runtime.true_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-65536)], runtime.true_),
+        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.false_),
+        #([runtime.Integer32(-65536), runtime.Integer32(-65535)], runtime.false_),
     ]
     |> list.each(
         fn (test_case)
@@ -337,13 +337,13 @@ pub fn i32_ge_s_test()
 pub fn i32_ge_u_test()
 {
     [
-        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xffffffff)], runtime.i32_true),
-        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xfffffffe)], runtime.i32_true),
-        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.i32_true),
-        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.i32_true),
-        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.i32_true),
-        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.i32_false),
-        #([runtime.Integer32(0xfffffffe), runtime.Integer32(0xffffffff)], runtime.i32_false),
+        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xffffffff)], runtime.true_),
+        #([runtime.Integer32(0xffffffff), runtime.Integer32(0xfffffffe)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(65536)], runtime.true_),
+        #([runtime.Integer32(65536), runtime.Integer32(65535)], runtime.true_),
+        #([runtime.Integer32(0), runtime.Integer32(0)], runtime.true_),
+        #([runtime.Integer32(65535), runtime.Integer32(65536)], runtime.false_),
+        #([runtime.Integer32(0xfffffffe), runtime.Integer32(0xffffffff)], runtime.false_),
     ]
     |> list.each(
         fn (test_case)
@@ -451,10 +451,10 @@ pub fn i32_comparison___unsigned_overflow_error___test()
 pub fn i64_eqz_test()
 {
     [
-        #(runtime.Integer64(0), runtime.i64_true),
-        #(runtime.Integer64(1), runtime.i64_false),
-        #(runtime.Integer64(-1), runtime.i64_false),
-        #(runtime.Integer64(65536), runtime.i64_false)
+        #(runtime.Integer64(0), runtime.true_),
+        #(runtime.Integer64(1), runtime.false_),
+        #(runtime.Integer64(-1), runtime.false_),
+        #(runtime.Integer64(65536), runtime.false_)
     ]
     |> list.each(
         fn (test_case)
@@ -474,11 +474,11 @@ pub fn i64_eqz_test()
 pub fn i64_eq_test()
 {
     [
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.i64_true),
-        #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.i64_true),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.i64_false),
-        #([runtime.Integer64(0), runtime.Integer64(-1)], runtime.i64_false),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.i64_true)
+        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
+        #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.true_),
+        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.false_),
+        #([runtime.Integer64(0), runtime.Integer64(-1)], runtime.false_),
+        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.true_)
     ]
     |> list.each(
         fn (test_case)
@@ -498,11 +498,11 @@ pub fn i64_eq_test()
 pub fn i64_ne_test()
 {
     [
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.i64_false),
-        #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.i64_false),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.i64_true),
-        #([runtime.Integer64(0), runtime.Integer64(-1)], runtime.i64_true),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.i64_false)
+        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
+        #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.false_),
+        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.true_),
+        #([runtime.Integer64(0), runtime.Integer64(-1)], runtime.true_),
+        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.false_)
     ]
     |> list.each(
         fn (test_case)
@@ -522,11 +522,11 @@ pub fn i64_ne_test()
 pub fn i64_lt_s_test()
 {
     [
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.i64_false),
-        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.i64_true),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.i64_true),
-        #([runtime.Integer64(-1), runtime.Integer64(0)], runtime.i64_true),
-        #([runtime.Integer64(-65536), runtime.Integer64(-1024)], runtime.i64_true)
+        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
+        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.true_),
+        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.true_),
+        #([runtime.Integer64(-1), runtime.Integer64(0)], runtime.true_),
+        #([runtime.Integer64(-65536), runtime.Integer64(-1024)], runtime.true_)
     ]
     |> list.each(
         fn (test_case)
@@ -546,10 +546,10 @@ pub fn i64_lt_s_test()
 pub fn i64_lt_u_test()
 {
     [
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.i64_false),
-        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.i64_true),
-        #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.i64_false),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.i64_true)
+        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
+        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.true_),
+        #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.false_),
+        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.true_)
     ]
     |> list.each(
         fn (test_case)
@@ -569,13 +569,13 @@ pub fn i64_lt_u_test()
 pub fn i64_gt_s_test()
 {
     [
-        #([runtime.Integer64(0x7fffffff), runtime.Integer64(65536)], runtime.i64_true),
-        #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.i64_true),
-        #([runtime.Integer64(-2), runtime.Integer64(-1024)], runtime.i64_true),
-        #([runtime.Integer64(0x7fffffff * -1), runtime.Integer64(0)], runtime.i64_false),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.i64_false),
-        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.i64_false),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.i64_false)
+        #([runtime.Integer64(0x7fffffff), runtime.Integer64(65536)], runtime.true_),
+        #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.true_),
+        #([runtime.Integer64(-2), runtime.Integer64(-1024)], runtime.true_),
+        #([runtime.Integer64(0x7fffffff * -1), runtime.Integer64(0)], runtime.false_),
+        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
+        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.false_),
+        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.false_)
     ]
     |> list.each(
         fn (test_case)
@@ -595,11 +595,11 @@ pub fn i64_gt_s_test()
 pub fn i64_gt_u_test()
 {
     [
-        #([runtime.Integer64(0xffffffff), runtime.Integer64(0x7fffffff)], runtime.i64_true),
-        #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.i64_true),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.i64_false),
-        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.i64_false),
-        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.i64_false)
+        #([runtime.Integer64(0xffffffff), runtime.Integer64(0x7fffffff)], runtime.true_),
+        #([runtime.Integer64(65536), runtime.Integer64(1024)], runtime.true_),
+        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.false_),
+        #([runtime.Integer64(1024), runtime.Integer64(65536)], runtime.false_),
+        #([runtime.Integer64(0), runtime.Integer64(1)], runtime.false_)
     ]
     |> list.each(
         fn (test_case)
@@ -619,13 +619,13 @@ pub fn i64_gt_u_test()
 pub fn i64_le_s_test()
 {
     [
-        #([runtime.Integer64(0x7fffffff), runtime.Integer64(0x7fffffff)], runtime.i64_true),
-        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.i64_true),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.i64_true),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.i64_true),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65535)], runtime.i64_true),
-        #([runtime.Integer64(-65535), runtime.Integer64(-65536)], runtime.i64_false),
-        #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.i64_false),
+        #([runtime.Integer64(0x7fffffff), runtime.Integer64(0x7fffffff)], runtime.true_),
+        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.true_),
+        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
+        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.true_),
+        #([runtime.Integer64(-65536), runtime.Integer64(-65535)], runtime.true_),
+        #([runtime.Integer64(-65535), runtime.Integer64(-65536)], runtime.false_),
+        #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.false_),
     ]
     |> list.each(
         fn (test_case)
@@ -645,10 +645,10 @@ pub fn i64_le_s_test()
 pub fn i64_le_u_test()
 {
     [
-        #([runtime.Integer64(0xffffffff), runtime.Integer64(0xffffffff)], runtime.i64_true),
-        #([runtime.Integer64(0xfffffffe), runtime.Integer64(0xffffffff)], runtime.i64_true),
-        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.i64_true),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.i64_true)
+        #([runtime.Integer64(0xffffffff), runtime.Integer64(0xffffffff)], runtime.true_),
+        #([runtime.Integer64(0xfffffffe), runtime.Integer64(0xffffffff)], runtime.true_),
+        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.true_),
+        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_)
     ]
     |> list.each(
         fn (test_case)
@@ -668,13 +668,13 @@ pub fn i64_le_u_test()
 pub fn i64_ge_s_test()
 {
     [
-        #([runtime.Integer64(0x7fffffff), runtime.Integer64(0x7fffffff)], runtime.i64_true),
-        #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.i64_true),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.i64_true),
-        #([runtime.Integer64(-65535), runtime.Integer64(-65536)], runtime.i64_true),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.i64_true),
-        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.i64_false),
-        #([runtime.Integer64(-65536), runtime.Integer64(-65535)], runtime.i64_false),
+        #([runtime.Integer64(0x7fffffff), runtime.Integer64(0x7fffffff)], runtime.true_),
+        #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.true_),
+        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
+        #([runtime.Integer64(-65535), runtime.Integer64(-65536)], runtime.true_),
+        #([runtime.Integer64(-65536), runtime.Integer64(-65536)], runtime.true_),
+        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.false_),
+        #([runtime.Integer64(-65536), runtime.Integer64(-65535)], runtime.false_),
     ]
     |> list.each(
         fn (test_case)
@@ -694,13 +694,13 @@ pub fn i64_ge_s_test()
 pub fn i64_ge_u_test()
 {
     [
-        #([runtime.Integer64(0xffffffff), runtime.Integer64(0xffffffff)], runtime.i64_true),
-        #([runtime.Integer64(0xffffffff), runtime.Integer64(0xfffffffe)], runtime.i64_true),
-        #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.i64_true),
-        #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.i64_true),
-        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.i64_true),
-        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.i64_false),
-        #([runtime.Integer64(0xfffffffe), runtime.Integer64(0xffffffff)], runtime.i64_false),
+        #([runtime.Integer64(0xffffffff), runtime.Integer64(0xffffffff)], runtime.true_),
+        #([runtime.Integer64(0xffffffff), runtime.Integer64(0xfffffffe)], runtime.true_),
+        #([runtime.Integer64(65536), runtime.Integer64(65536)], runtime.true_),
+        #([runtime.Integer64(65536), runtime.Integer64(65535)], runtime.true_),
+        #([runtime.Integer64(0), runtime.Integer64(0)], runtime.true_),
+        #([runtime.Integer64(65535), runtime.Integer64(65536)], runtime.false_),
+        #([runtime.Integer64(0xfffffffe), runtime.Integer64(0xffffffff)], runtime.false_),
     ]
     |> list.each(
         fn (test_case)
