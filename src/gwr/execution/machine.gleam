@@ -290,55 +290,31 @@ pub fn address_to_string(address: runtime.Address) -> String
     int.to_string(address_to_int(address))
 }
 
-pub fn i32_binary_operation(state: MachineState, operation: fn (Int, Int) -> Result(runtime.Value, String)) -> Result(MachineState, String)
+pub type BinaryOperationHandler
 {
-    let #(stack, values) = stack.pop_repeat(state.stack, 2)
-    use result <- result.try(
-        case option.values(values)
-        {
-            [stack.ValueEntry(runtime.Integer32(value: b)), stack.ValueEntry(runtime.Integer32(value: a))] ->
-            {
-                operation(a, b)
-            }
-            anything_else -> Error("gwr/execution/machine.i32_binary_operation: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
-        }
-    )
-
-    let stack = stack.push(stack, [stack.ValueEntry(result)])
-    Ok(MachineState(..state, stack: stack))
+    IntegerBinaryOperation(fn (Int, Int) -> Result(runtime.Value, String))
+    FloatBinaryOperation(fn (ieee_float.IEEEFloat, ieee_float.IEEEFloat) -> Result(runtime.Value, String))
 }
 
-pub fn i64_binary_operation(state: MachineState, operation: fn (Int, Int) -> Result(runtime.Value, String)) -> Result(MachineState, String)
+pub fn binary_operation(state: MachineState, type_: types.NumberType, operation_handler: BinaryOperationHandler) -> Result(MachineState, String)
 {
     let #(stack, values) = stack.pop_repeat(state.stack, 2)
     use result <- result.try(
-        case option.values(values)
+        case type_, operation_handler, option.values(values)
         {
-            [stack.ValueEntry(runtime.Integer64(value: b)), stack.ValueEntry(runtime.Integer64(value: a))] ->
+              types.Integer32, IntegerBinaryOperation(handler), [stack.ValueEntry(runtime.Integer32(value: b)), stack.ValueEntry(runtime.Integer32(value: a))] 
+            | types.Integer64, IntegerBinaryOperation(handler), [stack.ValueEntry(runtime.Integer64(value: b)), stack.ValueEntry(runtime.Integer64(value: a))] ->
             {
-                operation(a, b)
+                handler(a, b)
             }
-            anything_else -> Error("gwr/execution/machine.i64_binary_operation: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
-        }
-    )
-
-    let stack = stack.push(stack, [stack.ValueEntry(result)])
-    Ok(MachineState(..state, stack: stack))
-}
-
-pub fn f32_binary_operation(state: MachineState, operation: fn (ieee_float.IEEEFloat, ieee_float.IEEEFloat) -> Result(runtime.Value, String)) -> Result(MachineState, String)
-{
-    let #(stack, values) = stack.pop_repeat(state.stack, 2)
-    use result <- result.try(
-        case option.values(values)
-        {
-            [stack.ValueEntry(runtime.Float32(value: b)), stack.ValueEntry(runtime.Float32(value: a))] ->
+              types.Float32, FloatBinaryOperation(handler), [stack.ValueEntry(runtime.Float32(value: b)), stack.ValueEntry(runtime.Float32(value: a))]
+            | types.Float64, FloatBinaryOperation(handler), [stack.ValueEntry(runtime.Float64(value: b)), stack.ValueEntry(runtime.Float64(value: a))] ->
             {
                 use a <- result.try(runtime.builtin_float_to_ieee_float(a))
                 use b <- result.try(runtime.builtin_float_to_ieee_float(b))
-                operation(a, b)
+                handler(a, b)
             }
-            anything_else -> Error("gwr/execution/machine.f32_binary_operation: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+            _, _, anything_else -> Error("gwr/execution/machine.binary_operation: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
         }
     )
 
@@ -420,84 +396,85 @@ pub fn i32_eqz(state: MachineState) -> Result(MachineState, String)
 
 pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
 {
-    i32_binary_operation(state, fn (a, b) { Ok(bool_to_i32_bool(a == b)) })
+    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) { Ok(bool_to_i32_bool(a == b)) }))
 }
 
 pub fn i32_ne(state: MachineState) -> Result(MachineState, String)
 {
-    i32_binary_operation(state, fn (a, b) { Ok(bool_to_i32_bool(a != b)) })
+    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) { Ok(bool_to_i32_bool(a != b)) }))
 }
 
 pub fn i32_lt_s(state: MachineState) -> Result(MachineState, String)
 {
-    i32_binary_operation(state, fn (a, b) {
-        use a <- result.try(signed_integer_overflow_check(a, 32))
-        use b <- result.try(signed_integer_overflow_check(b, 32))
-        Ok(bool_to_i32_bool(a < b))
-    })
+    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
+            use a <- result.try(signed_integer_overflow_check(a, 32))
+            use b <- result.try(signed_integer_overflow_check(b, 32))
+            Ok(bool_to_i32_bool(a < b))
+        })
+    )
 }
 
 pub fn i32_lt_u(state: MachineState) -> Result(MachineState, String)
 {
-    i32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 32))
         use b <- result.try(unsigned_integer_overflow_check(b, 32))
         Ok(bool_to_i32_bool(a < b))
-    })
+    }))
 }
 
 pub fn i32_gt_s(state: MachineState) -> Result(MachineState, String)
 {
-    i32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 32))
         use b <- result.try(signed_integer_overflow_check(b, 32))
         Ok(bool_to_i32_bool(a > b))
-    })
+    }))
 }
 
 pub fn i32_gt_u(state: MachineState) -> Result(MachineState, String)
 {
-    i32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 32))
         use b <- result.try(unsigned_integer_overflow_check(b, 32))
         Ok(bool_to_i32_bool(a > b))
-    })
+    }))
 }
 
 pub fn i32_le_s(state: MachineState) -> Result(MachineState, String)
 {
-    i32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 32))
         use b <- result.try(signed_integer_overflow_check(b, 32))
         Ok(bool_to_i32_bool(a <= b))
-    })
+    }))
 }
 
 pub fn i32_le_u(state: MachineState) -> Result(MachineState, String)
 {
-    i32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 32))
         use b <- result.try(unsigned_integer_overflow_check(b, 32))
         Ok(bool_to_i32_bool(a <= b))
-    })
+    }))
 }
 
 pub fn i32_ge_s(state: MachineState) -> Result(MachineState, String)
 {
-    i32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 32))
         use b <- result.try(signed_integer_overflow_check(b, 32))
         Ok(bool_to_i32_bool(a >= b))
-    })
+    }))
 }
 
 pub fn i32_ge_u(state: MachineState) -> Result(MachineState, String)
 {
-    i32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer32, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 32))
         use b <- result.try(unsigned_integer_overflow_check(b, 32))
         Ok(bool_to_i32_bool(a >= b))
-    })
+    }))
 }
 
 pub fn i64_eqz(state: MachineState) -> Result(MachineState, String)
@@ -517,151 +494,151 @@ pub fn i64_eqz(state: MachineState) -> Result(MachineState, String)
 
 pub fn i64_eq(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) { Ok(bool_to_i32_bool(a == b)) })
+    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) { Ok(bool_to_i32_bool(a == b)) }))
 }
 
 pub fn i64_ne(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) { Ok(bool_to_i32_bool(a != b)) })
+    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) { Ok(bool_to_i32_bool(a != b)) }))
 }
 
 pub fn i64_lt_s(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 64))
         use b <- result.try(signed_integer_overflow_check(b, 64))
         Ok(bool_to_i32_bool(a < b))
-    })
+    }))
 }
 
 pub fn i64_lt_u(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 64))
         use b <- result.try(unsigned_integer_overflow_check(b, 64))
         Ok(bool_to_i32_bool(a < b))
-    })
+    }))
 }
 
 pub fn i64_gt_s(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 64))
         use b <- result.try(signed_integer_overflow_check(b, 64))
         Ok(bool_to_i32_bool(a > b))
-    })
+    }))
 }
 
 pub fn i64_gt_u(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 64))
         use b <- result.try(unsigned_integer_overflow_check(b, 64))
         Ok(bool_to_i32_bool(a > b))
-    })
+    }))
 }
 
 pub fn i64_le_s(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 64))
         use b <- result.try(signed_integer_overflow_check(b, 64))
         Ok(bool_to_i32_bool(a <= b))
-    })
+    }))
 }
 
 pub fn i64_le_u(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 64))
         use b <- result.try(unsigned_integer_overflow_check(b, 64))
         Ok(bool_to_i32_bool(a <= b))
-    })
+    }))
 }
 
 pub fn i64_ge_s(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(signed_integer_overflow_check(a, 64))
         use b <- result.try(signed_integer_overflow_check(b, 64))
         Ok(bool_to_i32_bool(a >= b))
-    })
+    }))
 }
 
 pub fn i64_ge_u(state: MachineState) -> Result(MachineState, String)
 {
-    i64_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Integer64, IntegerBinaryOperation(fn (a, b) {
         use a <- result.try(unsigned_integer_overflow_check(a, 64))
         use b <- result.try(unsigned_integer_overflow_check(b, 64))
         Ok(bool_to_i32_bool(a >= b))
-    })
+    }))
 }
 
 pub fn f32_eq(state: MachineState) -> Result(MachineState, String)
 {
-    f32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
         case ieee_float.compare(a, b)
         {
             Ok(order.Eq) -> Ok(runtime.true_)
             _ -> Ok(runtime.false_)
         }
-    })
+    }))
 }
 
 pub fn f32_ne(state: MachineState) -> Result(MachineState, String)
 {
-    f32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
         case ieee_float.compare(a, b)
         {
             Ok(order.Eq) -> Ok(runtime.false_)
             Error(Nil) -> Ok(runtime.false_)
             _ -> Ok(runtime.true_)
         }
-    })
+    }))
 }
 
 pub fn f32_lt(state: MachineState) -> Result(MachineState, String)
 {
-    f32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
         case ieee_float.compare(a, b)
         {
             Ok(order.Lt) -> Ok(runtime.true_)
             _ -> Ok(runtime.false_)
         }
-    })
+    }))
 }
 
 pub fn f32_gt(state: MachineState) -> Result(MachineState, String)
 {
-    f32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
         case ieee_float.compare(a, b)
         {
             Ok(order.Gt) -> Ok(runtime.true_)
             _ -> Ok(runtime.false_)
         }
-    })
+    }))
 }
 
 pub fn f32_le(state: MachineState) -> Result(MachineState, String)
 {
-    f32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
         case ieee_float.compare(a, b)
         {
             Ok(order.Lt) | Ok(order.Eq) -> Ok(runtime.true_)
             _ -> Ok(runtime.false_)
         }
-    })
+    }))
 }
 
 pub fn f32_ge(state: MachineState) -> Result(MachineState, String)
 {
-    f32_binary_operation(state, fn (a, b) {
+    binary_operation(state, types.Float32, FloatBinaryOperation(fn (a, b) {
         case ieee_float.compare(a, b)
         {
             Ok(order.Gt) | Ok(order.Eq) -> Ok(runtime.true_)
             _ -> Ok(runtime.false_)
         }
-    })
+    }))
 }
 
 pub fn i32_add(state: MachineState) -> Result(MachineState, String)
