@@ -231,8 +231,8 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.F32Const(value) -> f32_const(current_state, value)
                     instruction.F64Const(value) -> f64_const(current_state, value)
                     instruction.I32Eqz -> i32_eqz(current_state)
-                    instruction.I32Eq -> i32_eq(current_state)
-                    instruction.I32Ne -> i32_ne(current_state)
+                    instruction.I32Eq  -> i32_eq(current_state)
+                    instruction.I32Ne  -> i32_ne(current_state)
                     instruction.I32LtS -> i32_lt_s(current_state)
                     instruction.I32LtU -> i32_lt_u(current_state)
                     instruction.I32GtS -> i32_gt_s(current_state)
@@ -241,6 +241,17 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.I32LeU -> i32_le_u(current_state)
                     instruction.I32GeS -> i32_ge_s(current_state)
                     instruction.I32GeU -> i32_ge_u(current_state)
+                    instruction.I64Eqz -> i64_eqz(current_state)
+                    instruction.I64Eq  -> i64_eq(current_state)
+                    instruction.I64Ne  -> i64_ne(current_state)
+                    instruction.I64LtS -> i64_lt_s(current_state)
+                    instruction.I64LtU -> i64_lt_u(current_state)
+                    instruction.I64GtS -> i64_gt_s(current_state)
+                    instruction.I64GtU -> i64_gt_u(current_state)
+                    instruction.I64LeS -> i64_le_s(current_state)
+                    instruction.I64LeU -> i64_le_u(current_state)
+                    instruction.I64GeS -> i64_ge_s(current_state)
+                    instruction.I64GeU -> i64_ge_u(current_state)
 
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
@@ -270,6 +281,82 @@ pub fn address_to_int(address: runtime.Address) -> Int
 pub fn address_to_string(address: runtime.Address) -> String
 {
     int.to_string(address_to_int(address))
+}
+
+pub fn i32_binary_operation(state: MachineState, operation: fn (Int, Int) -> Result(runtime.Value, String)) -> Result(MachineState, String)
+{
+    let #(stack, values) = stack.pop_repeat(state.stack, 2)
+    use result <- result.try(
+        case option.values(values)
+        {
+            [stack.ValueEntry(runtime.Integer32(value: b)), stack.ValueEntry(runtime.Integer32(value: a))] ->
+            {
+                operation(a, b)
+            }
+            anything_else -> Error("gwr/execution/machine.i32_binary_operation: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+        }
+    )
+
+    let stack = stack.push(stack, [stack.ValueEntry(result)])
+    Ok(MachineState(..state, stack: stack))
+}
+
+pub fn i64_binary_operation(state: MachineState, operation: fn (Int, Int) -> Result(runtime.Value, String)) -> Result(MachineState, String)
+{
+    let #(stack, values) = stack.pop_repeat(state.stack, 2)
+    use result <- result.try(
+        case option.values(values)
+        {
+            [stack.ValueEntry(runtime.Integer64(value: b)), stack.ValueEntry(runtime.Integer64(value: a))] ->
+            {
+                operation(a, b)
+            }
+            anything_else -> Error("gwr/execution/machine.i64_binary_operation: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+        }
+    )
+
+    let stack = stack.push(stack, [stack.ValueEntry(result)])
+    Ok(MachineState(..state, stack: stack))
+}
+
+pub fn bool_to_i32_bool(value: Bool) -> runtime.Value
+{
+    case value
+    {
+        True -> runtime.i32_true
+        False -> runtime.i32_false
+    }
+}
+
+pub fn bool_to_i64_bool(value: Bool) -> runtime.Value
+{
+    case value
+    {
+        True -> runtime.i64_true
+        False -> runtime.i64_false
+    }
+}
+
+fn signed_integer_overflow_check(value: Int, bits: Int) -> Result(Int, String)
+{
+    case bits, value
+    {
+        32, v if v >= -2_147_483_648 && v <= 2_147_483_647 -> Ok(v)
+        64, v if v >= -9_223_372_036_854_775_808 && v <= 9_223_372_036_854_775_807 -> Ok(v)
+        b, _ if b != 32 && b != 64 -> Error("gwr/execution/machine.signed_integer_overflow_check: unsupported bit width \"" <> int.to_string(b) <> "\"")
+        _, _ -> Error("gwr/execution/machine.signed_integer_overflow_check: signed integer overflow")
+    }
+}
+
+fn unsigned_integer_overflow_check(value: Int, bits: Int) -> Result(Int, String)
+{
+    case bits, value
+    {
+        32, v if v >= 0 && v <= 4_294_967_295 -> Ok(v)
+        64, v if v >= 0 && v <= 18_446_744_073_709_551_615 -> Ok(v)
+        b, _ if b != 32 && b != 64 -> Error("gwr/execution/machine.unsigned_integer_overflow_check: unsupported bit width \"" <> int.to_string(b) <> "\"")
+        _, _ -> Error("gwr/execution/machine.unsigned_integer_overflow_check: unsigned integer overflow")
+    }
 }
 
 pub fn i32_const(state: MachineState, value: Int) -> Result(MachineState, String)
@@ -304,62 +391,13 @@ pub fn i32_eqz(state: MachineState) -> Result(MachineState, String)
     use result <- result.try(
         case entry
         {
-            option.Some(stack.ValueEntry(runtime.Integer32(value: 0))) -> Ok(stack.ValueEntry(runtime.true_))
-            option.Some(stack.ValueEntry(runtime.Integer32(value: _))) -> Ok(stack.ValueEntry(runtime.false_))
+            option.Some(stack.ValueEntry(runtime.Integer32(value: 0))) -> Ok(stack.ValueEntry(runtime.i32_true))
+            option.Some(stack.ValueEntry(runtime.Integer32(value: _))) -> Ok(stack.ValueEntry(runtime.i32_false))
             anything_else -> Error("gwr/execution/machine.i32_eqz: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
         }
     )
     let stack = stack.push(state.stack, [result])
     Ok(MachineState(..state, stack: stack))
-}
-
-pub fn i32_binary_operation(state: MachineState, operation: fn (Int, Int) -> Result(runtime.Value, String)) -> Result(MachineState, String)
-{
-    let #(stack, values) = stack.pop_repeat(state.stack, 2)
-    use result <- result.try(
-        case option.values(values)
-        {
-            [stack.ValueEntry(runtime.Integer32(value: b)), stack.ValueEntry(runtime.Integer32(value: a))] ->
-            {
-                operation(a, b)
-            }
-            anything_else -> Error("gwr/execution/machine.i32_binary_operation: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
-        }
-    )
-
-    let stack = stack.push(stack, [stack.ValueEntry(result)])
-    Ok(MachineState(..state, stack: stack))
-}
-
-pub fn bool_to_i32_bool(value: Bool) -> runtime.Value
-{
-    case value
-    {
-        True -> runtime.true_
-        False -> runtime.false_
-    }
-}
-
-fn signed_integer_overflow_check(value: Int, bits: Int) -> Result(Int, String)
-{
-    case bits, value
-    {
-        32, v if v >= -2_147_483_648 && v <= 2_147_483_647 -> Ok(v)
-        64, v if v >= -9_223_372_036_854_775_808 && v <= 9_223_372_036_854_775_807 -> Ok(v)
-        b, _ if b != 32 && b != 64 -> Error("gwr/execution/machine.signed_integer_overflow_check: unsupported bit width \"" <> int.to_string(b) <> "\"")
-        _, _ -> Error("gwr/execution/machine.signed_integer_overflow_check: signed integer overflow")
-    }
-}
-
-fn unsigned_integer_overflow_check(value: Int, bits: Int) -> Result(Int, String)
-{
-    case bits, value
-    {
-        32, v if v >= 0 && v <= 4_294_967_295 -> Ok(v)
-        64, v if v >= 0 && v <= 18_446_744_073_709_551_615 -> Ok(v)
-        b, _ if b != 32 && b != 64 -> Error("gwr/execution/machine.unsigned_integer_overflow_check: unsupported bit width \"" <> int.to_string(b) <> "\"")
-        _, _ -> Error("gwr/execution/machine.unsigned_integer_overflow_check: unsigned integer overflow")
-    }
 }
 
 pub fn i32_eq(state: MachineState) -> Result(MachineState, String)
@@ -441,6 +479,103 @@ pub fn i32_ge_u(state: MachineState) -> Result(MachineState, String)
         use a <- result.try(unsigned_integer_overflow_check(a, 32))
         use b <- result.try(unsigned_integer_overflow_check(b, 32))
         Ok(bool_to_i32_bool(a >= b))
+    })
+}
+
+pub fn i64_eqz(state: MachineState) -> Result(MachineState, String)
+{
+    let #(stack, entry) = stack.pop(state.stack)
+    use result <- result.try(
+        case entry
+        {
+            option.Some(stack.ValueEntry(runtime.Integer64(value: 0))) -> Ok(stack.ValueEntry(runtime.i64_true))
+            option.Some(stack.ValueEntry(runtime.Integer64(value: _))) -> Ok(stack.ValueEntry(runtime.i64_false))
+            anything_else -> Error("gwr/execution/machine.i64_eqz: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+        }
+    )
+    let stack = stack.push(state.stack, [result])
+    Ok(MachineState(..state, stack: stack))
+}
+
+pub fn i64_eq(state: MachineState) -> Result(MachineState, String)
+{
+    i64_binary_operation(state, fn (a, b) { Ok(bool_to_i64_bool(a == b)) })
+}
+
+pub fn i64_ne(state: MachineState) -> Result(MachineState, String)
+{
+    i64_binary_operation(state, fn (a, b) { Ok(bool_to_i64_bool(a != b)) })
+}
+
+pub fn i64_lt_s(state: MachineState) -> Result(MachineState, String)
+{
+    i64_binary_operation(state, fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, 64))
+        use b <- result.try(signed_integer_overflow_check(b, 64))
+        Ok(bool_to_i64_bool(a < b))
+    })
+}
+
+pub fn i64_lt_u(state: MachineState) -> Result(MachineState, String)
+{
+    i64_binary_operation(state, fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, 64))
+        use b <- result.try(unsigned_integer_overflow_check(b, 64))
+        Ok(bool_to_i64_bool(a < b))
+    })
+}
+
+pub fn i64_gt_s(state: MachineState) -> Result(MachineState, String)
+{
+    i64_binary_operation(state, fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, 64))
+        use b <- result.try(signed_integer_overflow_check(b, 64))
+        Ok(bool_to_i64_bool(a > b))
+    })
+}
+
+pub fn i64_gt_u(state: MachineState) -> Result(MachineState, String)
+{
+    i64_binary_operation(state, fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, 64))
+        use b <- result.try(unsigned_integer_overflow_check(b, 64))
+        Ok(bool_to_i64_bool(a > b))
+    })
+}
+
+pub fn i64_le_s(state: MachineState) -> Result(MachineState, String)
+{
+    i64_binary_operation(state, fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, 64))
+        use b <- result.try(signed_integer_overflow_check(b, 64))
+        Ok(bool_to_i64_bool(a <= b))
+    })
+}
+
+pub fn i64_le_u(state: MachineState) -> Result(MachineState, String)
+{
+    i64_binary_operation(state, fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, 64))
+        use b <- result.try(unsigned_integer_overflow_check(b, 64))
+        Ok(bool_to_i64_bool(a <= b))
+    })
+}
+
+pub fn i64_ge_s(state: MachineState) -> Result(MachineState, String)
+{
+    i64_binary_operation(state, fn (a, b) {
+        use a <- result.try(signed_integer_overflow_check(a, 64))
+        use b <- result.try(signed_integer_overflow_check(b, 64))
+        Ok(bool_to_i64_bool(a >= b))
+    })
+}
+
+pub fn i64_ge_u(state: MachineState) -> Result(MachineState, String)
+{
+    i64_binary_operation(state, fn (a, b) {
+        use a <- result.try(unsigned_integer_overflow_check(a, 64))
+        use b <- result.try(unsigned_integer_overflow_check(b, 64))
+        Ok(bool_to_i64_bool(a >= b))
     })
 }
 
