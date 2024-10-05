@@ -932,6 +932,58 @@ pub fn float_comparison___nan___test()
     })
 }
 
+pub fn integer_clz_test()
+{
+    [
+        #(
+            types.Integer32,
+            [
+                #(runtime.Integer32(0b11111111_11111111_11111111_11111111), runtime.Integer32(0)),
+                #(runtime.Integer32(0b01111111_11111111_11111111_11111111), runtime.Integer32(1)),
+                #(runtime.Integer32(0b00111111_11111111_11111111_11111111), runtime.Integer32(2)),
+                #(runtime.Integer32(0b00011111_11111111_11111111_11111111), runtime.Integer32(3)),
+                #(runtime.Integer32(0b00000000_11111111_11111111_11111111), runtime.Integer32(8)),
+                #(runtime.Integer32(0b00000000_00000000_11111111_11111111), runtime.Integer32(16)),
+                #(runtime.Integer32(0b00000000_00000000_00000000_11111111), runtime.Integer32(24)),
+                #(runtime.Integer32(0b00000000_00000000_00000000_00000000), runtime.Integer32(32)),
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #(runtime.Integer64(0b11111111_11111111_11111111_11111111_11111111_11111111_11111111_11111111), runtime.Integer64(0)),
+                #(runtime.Integer64(0b01111111_11111111_11111111_11111111_11111111_11111111_11111111_11111111), runtime.Integer64(1)),
+                #(runtime.Integer64(0b00111111_11111111_11111111_11111111_11111111_11111111_11111111_11111111), runtime.Integer64(2)),
+                #(runtime.Integer64(0b00011111_11111111_11111111_11111111_11111111_11111111_11111111_11111111), runtime.Integer64(3)),
+                #(runtime.Integer64(0b00000000_11111111_11111111_11111111_11111111_11111111_11111111_11111111), runtime.Integer64(8)),
+                #(runtime.Integer64(0b00000000_00000000_11111111_11111111_11111111_11111111_11111111_11111111), runtime.Integer64(16)),
+                #(runtime.Integer64(0b00000000_00000000_00000000_11111111_11111111_11111111_11111111_11111111), runtime.Integer64(24)),
+                #(runtime.Integer64(0b00000000_00000000_00000000_00000000_11111111_11111111_11111111_11111111), runtime.Integer64(32)),
+                #(runtime.Integer64(0b00000000_00000000_00000000_00000000_00000000_11111111_11111111_11111111), runtime.Integer64(40)),
+                #(runtime.Integer64(0b00000000_00000000_00000000_00000000_00000000_00000000_11111111_11111111), runtime.Integer64(48)),
+                #(runtime.Integer64(0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_11111111), runtime.Integer64(56)),
+                #(runtime.Integer64(0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000), runtime.Integer64(64)),
+            ]
+        )
+    ]
+    |> list.each(
+        fn (integer_type)
+        {
+            list.each(integer_type.1, fn (test_case) {
+                io.println("Type = " <> string.inspect(integer_type.0) <> " / Test case = " <> string.inspect(test_case))
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: [stack.ValueEntry(test_case.0)])
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_clz(state, integer_type.0) |> should.be_ok
+
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
+        }
+    )
+}
+
 pub fn integer_ctz_test()
 {
     [

@@ -265,7 +265,9 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.F64Gt  -> float_gt(current_state, types.Float64)
                     instruction.F64Le  -> float_le(current_state, types.Float64)
                     instruction.F64Ge  -> float_ge(current_state, types.Float64)
-                    
+
+                    instruction.I32Clz -> integer_clz(current_state, types.Integer32)
+                    instruction.I64Clz -> integer_clz(current_state, types.Integer64)
                     instruction.I32Ctz -> integer_ctz(current_state, types.Integer32)
                     instruction.I64Ctz -> integer_ctz(current_state, types.Integer64)
                     instruction.I32Popcnt -> integer_popcnt(current_state, types.Integer32)
@@ -617,6 +619,80 @@ pub fn float_ge(state: MachineState, type_: types.NumberType) -> Result(MachineS
                 _ -> False
             }
         ))
+    }))
+}
+
+pub fn integer_clz(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
+{
+    unary_operation(state, type_, IntegerUnaryOperation(fn (a) {
+
+        let mask_32: fn(Int) -> Int = fn (value)
+        {
+            int.bitwise_and(value, 0xffffffff)
+        }
+        
+        let clz_32: fn(Int) -> Int = fn (value)
+        {
+            case value
+            {
+                0 -> 32
+                _ ->
+                {
+                    let n = 0
+                    let #(n, value) = case value <= 0x0000ffff
+                    {
+                        True -> #(n + 16, int.bitwise_shift_left(value, 16) |> mask_32)
+                        False -> #(n, value)
+                    }
+                    let #(n, value) = case value <= 0x00ffffff
+                    {
+                        True -> #(n + 8, int.bitwise_shift_left(value, 8) |> mask_32)
+                        False -> #(n, value)
+                    }
+                    let #(n, value) = case value <= 0x0fffffff
+                    {
+                        True -> #(n + 4, int.bitwise_shift_left(value, 4) |> mask_32)
+                        False -> #(n, value)
+                    }
+                    let #(n, value) = case value <= 0x3fffffff
+                    {
+                        True -> #(n + 2, int.bitwise_shift_left(value, 2) |> mask_32)
+                        False -> #(n, value)
+                    }
+                    let n = case value <= 0x7fffffff
+                    {
+                        True -> n + 1
+                        False -> n
+                    }
+                    n
+                }
+            }
+        }
+
+        let res = case type_
+        {
+            types.Integer32 -> clz_32(a)
+            types.Integer64 ->
+            {
+                case a
+                {
+                    0 -> 64
+                    _ ->
+                    {
+                        let low = int.bitwise_and(a, 0x00000000ffffffff)
+                        let high = int.bitwise_shift_right(a, 32)
+                        case high
+                        {
+                            0 -> 32 + clz_32(low)
+                            _ -> clz_32(high)
+                        }
+                    }
+                }
+            }
+            _ -> 0
+        } 
+
+        Ok(runtime.Integer64(res))
     }))
 }
 
