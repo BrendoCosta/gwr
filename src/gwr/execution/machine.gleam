@@ -265,7 +265,9 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
                     instruction.F64Gt  -> float_gt(current_state, types.Float64)
                     instruction.F64Le  -> float_le(current_state, types.Float64)
                     instruction.F64Ge  -> float_ge(current_state, types.Float64)
-
+                    instruction.I32Popcnt -> integer_popcnt(current_state, types.Integer32)
+                    instruction.I64Popcnt -> integer_popcnt(current_state, types.Integer64)
+                    
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
                     unknown -> Error("gwr/execution/machine.execute: unknown instruction \"" <> string.inspect(unknown) <> "\"")
@@ -302,6 +304,12 @@ pub type BinaryOperationHandler
     FloatBinaryOperation(fn (ieee_float.IEEEFloat, ieee_float.IEEEFloat) -> Result(runtime.Value, String))
 }
 
+pub type UnaryOperationHandler
+{
+    IntegerUnaryOperation(fn (Int) -> Result(runtime.Value, String))
+    FloatUnaryOperation(fn (ieee_float.IEEEFloat) -> Result(runtime.Value, String))
+}
+
 pub fn binary_operation(state: MachineState, type_: types.NumberType, operation_handler: BinaryOperationHandler) -> Result(MachineState, String)
 {
     let #(stack, values) = stack.pop_repeat(state.stack, 2)
@@ -321,6 +329,37 @@ pub fn binary_operation(state: MachineState, type_: types.NumberType, operation_
                 handler(a, b)
             }
             t, h, args -> Error("gwr/execution/machine.binary_operation: wrong operands type or handler for an instruction of type \"" <> string.inspect(t) <> "\": \"" <> string.inspect(h) <> "\" \"" <> string.inspect(args) <> "\"")
+        }
+    )
+
+    let stack = stack.push(stack, [stack.ValueEntry(result)])
+    Ok(MachineState(..state, stack: stack))
+}
+
+pub fn unary_operation(state: MachineState, type_: types.NumberType, operation_handler: UnaryOperationHandler) -> Result(MachineState, String)
+{
+    let #(stack, values) = stack.pop(state.stack)
+    use result <- result.try(
+        case type_, operation_handler, values
+        {
+              types.Integer32, IntegerUnaryOperation(handler), option.Some(stack.ValueEntry(runtime.Integer32(value: a))) 
+            | types.Integer64, IntegerUnaryOperation(handler), option.Some(stack.ValueEntry(runtime.Integer64(value: a))) ->
+            {
+                use result <- result.try(handler(a))
+                // Do operations with 64 bit, demote it to 32 bit if necessary
+                case type_, result
+                {
+                    types.Integer32, runtime.Integer64(v) -> Ok(runtime.Integer32(v))
+                    _, _ -> Ok(result)
+                }
+            }
+              types.Float32, FloatUnaryOperation(handler), option.Some(stack.ValueEntry(runtime.Float32(value: a)))
+            | types.Float64, FloatUnaryOperation(handler), option.Some(stack.ValueEntry(runtime.Float64(value: a))) ->
+            {
+                use a <- result.try(runtime.builtin_float_to_ieee_float(a))
+                handler(a)
+            }
+            t, h, args -> Error("gwr/execution/machine.unary_operation: wrong operands type or handler for an instruction of type \"" <> string.inspect(t) <> "\": \"" <> string.inspect(h) <> "\" \"" <> string.inspect(args) <> "\"")
         }
     )
 
@@ -575,6 +614,36 @@ pub fn float_ge(state: MachineState, type_: types.NumberType) -> Result(MachineS
                 _ -> False
             }
         ))
+    }))
+}
+
+pub fn integer_popcnt(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
+{
+    unary_operation(state, type_, IntegerUnaryOperation(fn (a) {
+
+        let popcnt_32: fn(Int) -> Int = fn (value)
+        {
+            let value = int.bitwise_and(value, 0x55555555) + int.bitwise_and(int.bitwise_shift_right(value, 1), 0x55555555)
+            let value = int.bitwise_and(value, 0x33333333) + int.bitwise_and(int.bitwise_shift_right(value, 2), 0x33333333)
+            let value = int.bitwise_and(value, 0x0f0f0f0f) + int.bitwise_and(int.bitwise_shift_right(value, 4), 0x0f0f0f0f)
+            let value = int.bitwise_and(value, 0x00ff00ff) + int.bitwise_and(int.bitwise_shift_right(value, 8), 0x00ff00ff)
+            let value = int.bitwise_and(value, 0x0000ffff) + int.bitwise_and(int.bitwise_shift_right(value, 16), 0x0000ffff)
+            value
+        }
+        
+        let res = case type_
+        {
+            types.Integer32 -> popcnt_32(a)
+            types.Integer64 ->
+            {
+                let low_cnt = popcnt_32(a)
+                let high_cnt = popcnt_32(int.bitwise_shift_right(a, 32))
+                low_cnt + high_cnt
+            }
+            _ -> 0
+        } 
+
+        Ok(runtime.Integer64(res))
     }))
 }
 

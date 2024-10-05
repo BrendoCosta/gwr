@@ -932,6 +932,59 @@ pub fn float_comparison___nan___test()
     })
 }
 
+pub fn integer_popcnt_test()
+{
+    [
+        #(
+            types.Integer32,
+            [
+                #(runtime.Integer32(0), runtime.Integer32(0)),
+                #(runtime.Integer32(1), runtime.Integer32(1)),
+                #(runtime.Integer32(2), runtime.Integer32(1)),
+                #(runtime.Integer32(3), runtime.Integer32(2)),
+                #(runtime.Integer32(130), runtime.Integer32(2)),
+                #(runtime.Integer32(65535), runtime.Integer32(16)),
+                #(runtime.Integer32(65536), runtime.Integer32(1)),
+                #(runtime.Integer32(0x7fffffff), runtime.Integer32(31)),
+                #(runtime.Integer32(0xffffffff), runtime.Integer32(32)),
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #(runtime.Integer64(0), runtime.Integer64(0)),
+                #(runtime.Integer64(1), runtime.Integer64(1)),
+                #(runtime.Integer64(2), runtime.Integer64(1)),
+                #(runtime.Integer64(3), runtime.Integer64(2)),
+                #(runtime.Integer64(130), runtime.Integer64(2)),
+                #(runtime.Integer64(65535), runtime.Integer64(16)),
+                #(runtime.Integer64(65536), runtime.Integer64(1)),
+                #(runtime.Integer64(0x000000007fffffff), runtime.Integer64(31)),
+                #(runtime.Integer64(0x00000000ffffffff), runtime.Integer64(32)),
+                #(runtime.Integer64(0x7fffffffffffffff), runtime.Integer64(63)),
+                #(runtime.Integer64(0xffffffff0000000f), runtime.Integer64(36)),
+                #(runtime.Integer64(0xffffffffffffffff), runtime.Integer64(64)),
+            ]
+        ),
+    ]
+    |> list.each(
+        fn (integer_type)
+        {
+            list.each(integer_type.1, fn (test_case) {
+                io.println("Type = " <> string.inspect(integer_type.0) <> " / Test case = " <> string.inspect(test_case))
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: [stack.ValueEntry(test_case.0)])
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_popcnt(state, integer_type.0) |> should.be_ok
+
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
+        }
+    )
+}
+
 pub fn i32_add_test()
 {
     let state = create_empty_state()
