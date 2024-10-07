@@ -25,7 +25,7 @@ pub type StackEntry
 /// https://webassembly.github.io/spec/core/exec/runtime.html#labels
 pub type Label
 {
-    Label(arity: Int, target: List(instruction.Instruction))
+    Label(arity: Int, continuation: List(instruction.Instruction))
 }
 
 /// Activation frames carry the return arity <n> of the respective function, hold the values of
