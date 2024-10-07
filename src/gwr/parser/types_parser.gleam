@@ -36,6 +36,15 @@ pub fn parse_value_type(from reader: byte_reader.ByteReader) -> Result(#(byte_re
     Ok(#(reader, value_type))
 }
 
+pub fn is_value_type(data: BitArray) -> Bool
+{
+    case data
+    {
+        <<0x7f>> | <<0x7e>> | <<0x7d>> | <<0x7c>> | <<0x7b>> | <<0x70>> | <<0x6f>> -> True
+        _ -> False
+    }
+}
+
 pub fn parse_limits(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, types.Limits), String)
 {
     // From the spec: "limits are encoded with a preceding flag indicating whether a maximum is present."

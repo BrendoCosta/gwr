@@ -304,18 +304,28 @@ pub fn parse_instructions_until(from reader: byte_reader.ByteReader, with predic
 
 pub fn parse_block_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.BlockType), String)
 {
-    //use #(reader, flag) <- result.try(byte_reader.read(from: reader, take: 1))
-    use data <- result.try(byte_reader.get_remaining(from: reader))
-    case data
+    // A structured instruction can consume input and produce output on the operand stack
+    // according to its annotated block type. It is given either as a type index that refers
+    // to a suitable function type, or as an optional value type inline, which is a shorthand
+    // for the function type [] -> [valtype?]
+    use #(_, first_byte) <- result.try(byte_reader.read(from: reader, take: 1))
+    case types_parser.is_value_type(first_byte)
     {
-        <<0x40>> -> Ok(#(byte_reader.advance(from: reader, up_to: 1), instruction.EmptyBlock))
-        _ -> case types_parser.parse_value_type(from: reader)
+        True ->
         {
-            Ok(#(reader, value_type)) -> Ok(#(reader, instruction.ValueTypeBlock(type_: value_type)))
-            _ ->
+            use #(reader, value_type) <- result.try(types_parser.parse_value_type(from: reader))
+            Ok(#(reader, instruction.ValueTypeBlock(type_: option.Some(value_type))))
+        }
+        False ->
+        {
+            case first_byte
             {
-                use #(reader, index) <- result.try(value_parser.parse_signed_leb128_integer(from: reader))
-                Ok(#(reader, instruction.TypeIndexBlock(index: index)))
+                <<0x40>> -> Ok(#(byte_reader.advance(from: reader, up_to: 1), instruction.ValueTypeBlock(type_: option.None)))
+                _ ->
+                {
+                    use #(reader, index) <- result.try(value_parser.parse_signed_leb128_integer(from: reader))
+                    Ok(#(reader, instruction.TypeIndexBlock(index: index)))
+                }
             }
         }
     }

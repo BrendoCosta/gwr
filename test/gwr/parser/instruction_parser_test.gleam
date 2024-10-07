@@ -20,7 +20,7 @@ pub fn parse_block_type___empty_block___test()
     |> should.equal(
         #(
             byte_reader.ByteReader(..reader, current_position: 1),
-            instruction.EmptyBlock
+            instruction.ValueTypeBlock(type_: option.None)
         )
     )
 }
@@ -33,7 +33,7 @@ pub fn parse_block_type___value_type_block___test()
     |> should.equal(
         #(
             byte_reader.ByteReader(..reader, current_position: 1),
-            instruction.ValueTypeBlock(type_: types.Number(types.Integer32))
+            instruction.ValueTypeBlock(type_: option.Some(types.Number(types.Integer32)))
         )
     )
 }
@@ -80,7 +80,7 @@ pub fn parse_instruction___loop___test()
         #(
             byte_reader.ByteReader(..reader, current_position: 9),
             instruction.Loop(
-                block_type: instruction.ValueTypeBlock(type_: types.Number(types.Integer32)),
+                block_type: instruction.ValueTypeBlock(type_: option.Some(types.Number(types.Integer32))),
                 instructions: [
                     instruction.I32Const(value: 8),
                     instruction.I32Const(value: 65536),
@@ -100,7 +100,7 @@ pub fn parse_instruction___if___test()
         #(
             byte_reader.ByteReader(..reader, current_position: 7),
             instruction.If(
-                block_type: instruction.ValueTypeBlock(type_: types.Number(types.Integer32)),
+                block_type: instruction.ValueTypeBlock(type_: option.Some(types.Number(types.Integer32))),
                 instructions: [
                     instruction.I32Const(value: 65536),
                     instruction.End
@@ -120,7 +120,7 @@ pub fn parse_instruction___if_else___test()
         #(
             byte_reader.ByteReader(..reader, current_position: 10),
             instruction.If(
-                block_type: instruction.ValueTypeBlock(type_: types.Number(types.Integer32)),
+                block_type: instruction.ValueTypeBlock(type_: option.Some(types.Number(types.Integer32))),
                 instructions: [
                     instruction.I32Const(value: 65536),
                 ],

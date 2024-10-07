@@ -8,9 +8,8 @@ import ieee_float
 /// https://webassembly.github.io/spec/core/syntax/instructions.html#control-instructions
 pub type BlockType
 {
-    EmptyBlock
     TypeIndexBlock(index: index.TypeIndex)
-    ValueTypeBlock(type_: types.ValueType)
+    ValueTypeBlock(type_: Option(types.ValueType))
 }
 
 pub type Instruction
