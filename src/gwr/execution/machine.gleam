@@ -1,3 +1,4 @@
+import gleam/io
 import gleam/bool
 import gleam/int
 import gleam/list
@@ -178,9 +179,10 @@ pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(run
                 }
                 list.append(function_locals, [value])
             })
+            let function_arity = list.length(function_type.results)
             let function_frame = stack.ActivationFrame
             (
-                arity: list.length(function_type.results), // "[...] Activation frames carry the return arity <n> of the respective function [...]"
+                arity: function_arity, // "[...] Activation frames carry the return arity <n> of the respective function [...]"
                 framestate: stack.FrameState
                 (
                     locals: function_locals,
@@ -191,7 +193,7 @@ pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(run
             let new_state_configuration = Configuration(..state.configuration, thread: Thread(framestate: function_frame.framestate, instructions: function_code.body))
             let new_state = MachineState(configuration: new_state_configuration, stack: new_state_stack)
 
-            use after_state <- result.try(execute(new_state))
+            use after_state <- result.try(execute_with_label(new_state, stack.Label(arity: function_arity, continuation: [])))
 
             let #(result_stack, result_values) = stack.pop_repeat(after_state.stack, function_frame.arity)
 
@@ -215,12 +217,41 @@ pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(run
     }
 }
 
-pub fn execute(current_state: MachineState) -> Result(MachineState, String)
+pub fn expand_block_type(framestate: stack.FrameState, block_type: instruction.BlockType) -> Result(types.FunctionType, String)
 {
-    use new_state <- result.try(
+    case block_type
+    {
+        instruction.TypeIndexBlock(index) -> result.replace_error(framestate.module_instance.types |> list.take(up_to: index + 1) |> list.last, "gwr/execution/machine.expand: couldn't find the function type with index \"" <> int.to_string(index) <> "\"")
+        instruction.ValueTypeBlock(type_: option.Some(valtype)) -> Ok(types.FunctionType(parameters: [], results: [valtype]))
+        instruction.ValueTypeBlock(type_: option.None) -> Ok(types.FunctionType(parameters: [], results: []))
+    }
+}
+
+pub fn execute_with_label(state: MachineState, label: stack.Label) -> Result(MachineState, String)
+{
+    let label_entry = stack.LabelEntry(label)
+    let state_to_be_executed = MachineState(..state, stack: stack.push(state.stack, [label_entry]))
+    use state_after_execution <- result.try(execute(state_to_be_executed))
+    use #(stack_after_label_popped, results) <- result.try(
+        {
+            let #(stack_after_results_popped, results) = stack.pop_repeat(from: state_after_execution.stack, up_to: label.arity)
+            case stack.pop(stack_after_results_popped)
+            {
+                #(stack_after_label_popped, option.Some(entry)) if entry == label_entry -> Ok(#(stack_after_label_popped, results))
+                anything_else -> Error("gwr/execution/machine.execute_with_label: expected the label pushed to the stack before execution but got " <> string.inspect(anything_else))
+            }
+        }
+    )
+    
+    Ok(MachineState(..state, stack: stack.push(stack_after_label_popped, option.values(results))))
+}
+
+pub fn execute(state: MachineState) -> Result(MachineState, String)
+{
+    use state <- result.try(
         list.fold(
-            from: Ok(current_state),
-            over: current_state.configuration.thread.instructions,
+            from: Ok(state),
+            over: state.configuration.thread.instructions,
             with: fn (current_state, instruction)
             {
                 use current_state <- result.try(current_state)
@@ -281,7 +312,7 @@ pub fn execute(current_state: MachineState) -> Result(MachineState, String)
         )
     )
 
-    Ok(new_state)
+    Ok(state)
 }
 
 pub fn address_to_int(address: runtime.Address) -> Int
