@@ -1,4 +1,3 @@
-import gleam/io
 import gleam/bool
 import gleam/int
 import gleam/list
@@ -258,18 +257,33 @@ pub fn execute(state: MachineState) -> Result(MachineState, String)
                 case instruction
                 {
                     instruction.End -> Ok(current_state)
-
-                    instruction.Block(block_type: bt, instructions: inst) ->
+                    instruction.Block(block_type: bt, instructions: inst) -> block_instruction(current_state, bt, inst, [])
+                    instruction.If(block_type: bt, instructions: if_instructions, else_: else_) ->
                     {
-                        use function_type <- result.try(expand_block_type(current_state.configuration.thread.framestate, bt))
-                        let arity = list.length(function_type.results)
-                        let label = stack.Label(arity: arity, continuation: [])
-                        // Assert: due to validation, there are at least <m> values on the top of the stack.
-                        let #(stack, parameters) = stack.pop_repeat(from: current_state.stack, up_to: label.arity)
-                        // Change thread's instructions to the block's instructions
-                        use after_state <- result.try(execute_with_label(MachineState(configuration: Configuration(..current_state.configuration, thread: Thread(..current_state.configuration.thread, instructions: inst)), stack: stack), label, option.values(parameters)))
-                        // Change thread's instructions back
-                        Ok(MachineState(..after_state, configuration: Configuration(..after_state.configuration, thread: Thread(..after_state.configuration.thread, instructions: current_state.configuration.thread.instructions))))
+                        // Assert: due to validation, a value of value type "i32" is on the top of the stack.
+                        // Pop the value i32.const "c" from the stack.
+                        case stack.pop(current_state.stack)
+                        {
+                            #(stack, option.Some(stack.ValueEntry(runtime.Integer32(c)))) ->
+                            {
+                                let state = MachineState(..current_state, stack: stack)
+                                case c != 0
+                                {
+                                    // If "c" is non-zero, then:
+                                    //     Execute the block instruction "block blocktype instr*1 end".
+                                    True -> block_instruction(state, bt, if_instructions, [])
+                                    // Else:
+                                    //     Execute the block instruction "block blocktype instr*2 end".
+                                    False -> case else_
+                                    {
+                                        option.Some(instruction.Else(else_instructions)) -> block_instruction(state, bt, else_instructions, [])
+                                        option.None -> Ok(state)
+                                        anything_else -> Error("gwr/execution/machine.execute: illegal instruction in the Else's field " <> string.inspect(anything_else))
+                                    }
+                                }
+                            }
+                            #(_, anything_else) -> Error("gwr/execution/machine.execute: expected the If's continuation flag but got " <> string.inspect(anything_else))
+                        }
                     }
 
                     instruction.I32Const(value) -> integer_const(current_state, types.Integer32, value)
@@ -346,6 +360,19 @@ pub fn address_to_int(address: runtime.Address) -> Int
 pub fn address_to_string(address: runtime.Address) -> String
 {
     int.to_string(address_to_int(address))
+}
+
+pub fn block_instruction(state: MachineState, block_type: instruction.BlockType, block_instructions: List(instruction.Instruction), block_continuation: List(instruction.Instruction))
+{
+    use function_type <- result.try(expand_block_type(state.configuration.thread.framestate, block_type))
+    let arity = list.length(function_type.results)
+    let label = stack.Label(arity: arity, continuation: block_continuation)
+    // @TODO Assert: due to validation, there are at least <m> values on the top of the stack.
+    let #(stack, parameters) = stack.pop_repeat(from: state.stack, up_to: label.arity)
+    // Change thread's instructions to the block's instructions
+    use after_state <- result.try(execute_with_label(MachineState(configuration: Configuration(..state.configuration, thread: Thread(..state.configuration.thread, instructions: block_instructions)), stack: stack), label, option.values(parameters)))
+    // Change thread's instructions back
+    Ok(MachineState(..after_state, configuration: Configuration(..after_state.configuration, thread: Thread(..after_state.configuration.thread, instructions: state.configuration.thread.instructions))))
 }
 
 pub type BinaryOperationHandler
