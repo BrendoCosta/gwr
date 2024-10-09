@@ -193,7 +193,7 @@ pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(run
             let new_state_configuration = Configuration(..state.configuration, thread: Thread(framestate: function_frame.framestate, instructions: function_code.body))
             let new_state = MachineState(configuration: new_state_configuration, stack: new_state_stack)
 
-            use after_state <- result.try(execute_with_label(new_state, stack.Label(arity: function_arity, continuation: [])))
+            use after_state <- result.try(execute_with_label(new_state, stack.Label(arity: function_arity, continuation: []), []))
 
             let #(result_stack, result_values) = stack.pop_repeat(after_state.stack, function_frame.arity)
 
@@ -227,10 +227,10 @@ pub fn expand_block_type(framestate: stack.FrameState, block_type: instruction.B
     }
 }
 
-pub fn execute_with_label(state: MachineState, label: stack.Label) -> Result(MachineState, String)
+pub fn execute_with_label(state: MachineState, label: stack.Label, parameters: List(stack.StackEntry)) -> Result(MachineState, String)
 {
     let label_entry = stack.LabelEntry(label)
-    let state_to_be_executed = MachineState(..state, stack: stack.push(state.stack, [label_entry]))
+    let state_to_be_executed = MachineState(..state, stack: stack.push(state.stack, [label_entry] |> list.append(parameters)))
     use state_after_execution <- result.try(execute(state_to_be_executed))
     use #(stack_after_label_popped, results) <- result.try(
         {
@@ -238,7 +238,7 @@ pub fn execute_with_label(state: MachineState, label: stack.Label) -> Result(Mac
             case stack.pop(stack_after_results_popped)
             {
                 #(stack_after_label_popped, option.Some(entry)) if entry == label_entry -> Ok(#(stack_after_label_popped, results))
-                anything_else -> Error("gwr/execution/machine.execute_with_label: expected the label pushed to the stack before execution but got " <> string.inspect(anything_else))
+                #(_, anything_else) -> Error("gwr/execution/machine.execute_with_label: expected the label " <> string.inspect(option.Some(label_entry)) <> " pushed to the stack before execution but got " <> string.inspect(anything_else))
             }
         }
     )
@@ -258,6 +258,20 @@ pub fn execute(state: MachineState) -> Result(MachineState, String)
                 case instruction
                 {
                     instruction.End -> Ok(current_state)
+
+                    instruction.Block(block_type: bt, instructions: inst) ->
+                    {
+                        use function_type <- result.try(expand_block_type(current_state.configuration.thread.framestate, bt))
+                        let arity = list.length(function_type.results)
+                        let label = stack.Label(arity: arity, continuation: [])
+                        // Assert: due to validation, there are at least <m> values on the top of the stack.
+                        let #(stack, parameters) = stack.pop_repeat(from: current_state.stack, up_to: label.arity)
+                        // Change thread's instructions to the block's instructions
+                        use after_state <- result.try(execute_with_label(MachineState(configuration: Configuration(..current_state.configuration, thread: Thread(..current_state.configuration.thread, instructions: inst)), stack: stack), label, option.values(parameters)))
+                        // Change thread's instructions back
+                        Ok(MachineState(..after_state, configuration: Configuration(..after_state.configuration, thread: Thread(..after_state.configuration.thread, instructions: current_state.configuration.thread.instructions))))
+                    }
+
                     instruction.I32Const(value) -> integer_const(current_state, types.Integer32, value)
                     instruction.I64Const(value) -> integer_const(current_state, types.Integer64, value)
                     instruction.F32Const(value) -> float_const(current_state, types.Float32, value)

@@ -17,3 +17,11 @@ pub fn sum_test()
     let #(_, result) = gwr.call(instance, "sum", [runtime.Integer32(4), runtime.Integer32(2)]) |> should.be_ok
     result |> should.equal([runtime.Integer32(6)])
 }
+
+pub fn block_test()
+{
+    let module_data = simplifile.read_bits(from: "./test/assets/control/block.wasm") |> should.be_ok
+    let instance = gwr.create(from: module_data) |> should.be_ok
+    let #(_, result) = gwr.call(instance, "block_test", [runtime.Integer32(2), runtime.Integer32(3)]) |> should.be_ok
+    result |> should.equal([runtime.Integer32(7)])
+}
