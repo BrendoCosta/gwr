@@ -488,21 +488,9 @@ pub fn float_const(state: MachineState, type_: types.NumberType, value: ieee_flo
 
 pub fn integer_eqz(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    let #(stack, entry) = stack.pop(state.stack)
-    use result <- result.try(
-        case type_, entry
-        {
-            types.Integer32, option.Some(stack.ValueEntry(runtime.Integer32(value: 0)))
-            | types.Integer64, option.Some(stack.ValueEntry(runtime.Integer64(value: 0))) -> Ok(stack.ValueEntry(runtime.true_))
-
-            types.Integer32, option.Some(stack.ValueEntry(runtime.Integer32(value: _)))
-            | types.Integer64, option.Some(stack.ValueEntry(runtime.Integer64(value: _))) -> Ok(stack.ValueEntry(runtime.false_))
-
-            _, anything_else -> Error("gwr/execution/machine.integer_eqz: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
-        }
-    )
-    let stack = stack.push(state.stack, [result])
-    Ok(MachineState(..state, stack: stack))
+    unary_operation(state, type_, IntegerUnaryOperation(fn (a) {
+        Ok(bool_to_i32_bool(a == 0))
+    }))
 }
 
 pub fn integer_eq(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
