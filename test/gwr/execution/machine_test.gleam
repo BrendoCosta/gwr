@@ -23,38 +23,31 @@ fn create_empty_state() -> machine.MachineState
 {
     machine.MachineState
     (
-        configuration: machine.Configuration
+        store: store.Store
         (
-            store: store.Store
-            (
-                datas: [],
-                elements: [],
-                functions: [],
-                globals: [],
-                memories: [],
-                tables: []
-            ),
-            thread: machine.Thread
-            (
-                framestate: stack.FrameState
-                (
-                    locals: dict.new(),
-                    module_instance: runtime.ModuleInstance
-                    (
-                        data_addresses: [],
-                        element_addresses: [],
-                        exports: [],
-                        function_addresses: [],
-                        global_addresses: [],
-                        memory_addresses: [],
-                        table_addresses: [],
-                        types : []
-                    )
-                ),
-                instructions: []
-            )
+            datas: [],
+            elements: [],
+            functions: dict.new(),
+            globals: [],
+            memories: [],
+            tables: []
         ),
         stack: stack.create()
+    )
+}
+
+pub fn create_empty_module_instance() -> runtime.ModuleInstance
+{
+    runtime.ModuleInstance
+    (
+        types: [],
+        function_addresses: dict.new(),
+        table_addresses: [],
+        memory_addresses: [],
+        global_addresses: [],
+        element_addresses: [],
+        data_addresses: [],
+        exports: [],
     )
 }
 
@@ -1108,23 +1101,28 @@ pub fn i32_add_test()
 
 pub fn local_get_test()
 {
-    let state = create_empty_state()
     let state = machine.MachineState
     (
         ..create_empty_state(),
-        configuration: machine.Configuration
-        (
-            ..state.configuration,
-            thread: machine.Thread
-            (
-                ..state.configuration.thread,
-                framestate: stack.FrameState
-                (
-                    ..state.configuration.thread.framestate,
-                    locals: dict.from_list([#(0, runtime.Integer32(2)), #(1, runtime.Integer32(256)), #(2, runtime.Integer32(512))])
-                )
-            )
-        )
+        stack: stack.create()
+               |> stack.push([
+                    stack.ActivationEntry
+                    (
+                        stack.Frame
+                        (
+                            arity: 0,
+                            framestate: stack.FrameState
+                            (
+                                locals: dict.from_list([
+                                    #(0, runtime.Integer32(2)),
+                                    #(1, runtime.Integer32(256)),
+                                    #(2, runtime.Integer32(512))
+                                ]),
+                                module_instance: create_empty_module_instance()
+                            )
+                        )
+                    )
+                ])
     )
 
     let state = machine.local_get(state, 1) |> should.be_ok
@@ -1136,32 +1134,35 @@ pub fn local_get_test()
 
 pub fn local_set_test()
 {
-    let state = create_empty_state()
     let state = machine.MachineState
     (
-        configuration: machine.Configuration
-        (
-            ..state.configuration,
-            thread: machine.Thread
-            (
-                ..state.configuration.thread,
-                framestate: stack.FrameState
-                (
-                    ..state.configuration.thread.framestate,
-                    locals: dict.from_list([
-                        #(0, runtime.Integer32(2)),
-                        #(1, runtime.Integer32(256)),
-                        #(2, runtime.Integer32(512))
-                    ])
-                )
-            )
-        ),
-        stack: stack.create() |> stack.push([stack.ValueEntry(runtime.Integer32(1024))])
+        ..create_empty_state(),
+        stack: stack.create()
+               |> stack.push([
+                    stack.ActivationEntry
+                    (
+                        stack.Frame
+                        (
+                            arity: 0,
+                            framestate: stack.FrameState
+                            (
+                                locals: dict.from_list([
+                                    #(0, runtime.Integer32(2)),
+                                    #(1, runtime.Integer32(256)),
+                                    #(2, runtime.Integer32(512))
+                                ]),
+                                module_instance: create_empty_module_instance()
+                            )
+                        )
+                    )
+                ])
+               |> stack.push([stack.ValueEntry(runtime.Integer32(1024))])
     )
 
     let state = machine.local_set(state, 2) |> should.be_ok
+    let frame = stack.get_current_frame(from: state.stack) |> should.be_ok
     
-    state.configuration.thread.framestate.locals
+    frame.framestate.locals
     |> dict.to_list
     |> list.sort(by: fn (a, b) { int.compare(a.0, b.0) }) // Order by the local's index
     |> should.equal([

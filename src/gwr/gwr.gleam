@@ -4,6 +4,7 @@ import gleam/result
 import gwr/binary
 import gwr/execution/machine
 import gwr/execution/runtime
+import gwr/execution/stack
 import gwr/parser/binary_parser
 import gwr/parser/byte_reader
 import gwr/syntax/module
@@ -40,6 +41,21 @@ pub fn call(instance: WebAssemblyInstance, name: String, arguments: List(runtime
         }
     )
 
-    use #(new_state, results) <- result.try(machine.call(instance.machine.state, function_index, arguments))
-    Ok(#(WebAssemblyInstance(..instance, machine: machine.Machine(..instance.machine, state: new_state)), results))
+    // Push the arguments to the stack
+    let state = machine.MachineState
+    (
+        ..instance.machine.state,
+        stack: stack.push(to: instance.machine.state.stack, push: arguments |> list.map(fn (x) { stack.ValueEntry(x) }))
+    )
+
+    // Invoke the function at given index
+    use state <- result.try(machine.invoke(state, runtime.FunctionAddress(function_index)))
+
+    // Pop the results from the stack
+    let #(stack, values) = stack.pop_while(from: state.stack, with: stack.is_value)
+    let results = list.map(values, stack.to_value)
+                  |> result.values
+                  |> list.reverse
+
+    Ok(#(WebAssemblyInstance(..instance, machine: machine.Machine(..instance.machine, state: machine.MachineState(..state, stack: stack))), results))
 }

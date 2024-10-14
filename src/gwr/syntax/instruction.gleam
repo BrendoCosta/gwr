@@ -25,7 +25,7 @@ pub type Instruction
     BrIf(index: index.LabelIndex)
     BrTable(label: index.LabelIndex)
     Return
-    Call(function: index.FunctionIndex)
+    Call(index: index.FunctionIndex)
     CallIndirect(table: index.TableIndex, type_: index.TypeIndex)
     /// https://webassembly.github.io/spec/core/binary/instructions.html#variable-instructions
     LocalGet(index: index.LocalIndex)

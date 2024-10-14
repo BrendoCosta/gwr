@@ -18,27 +18,6 @@ import gwr/syntax/types
 
 import ieee_float
 
-/// A configuration consists of the current store and an executing thread.
-///
-/// https://webassembly.github.io/spec/core/exec/runtime.html#configurations
-pub type Configuration
-{
-    Configuration(store: store.Store, thread: Thread)
-}
-
-/// A thread is a computation over instructions that operates relative to the state of
-/// a current frame referring to the module instance in which the computation runs, i.e.,
-/// where the current function originates from.
-///
-/// NOTE: The current version of WebAssembly is single-threaded, but configurations with
-/// multiple threads may be supported in the future.
-///
-/// https://webassembly.github.io/spec/core/exec/runtime.html#configurations
-pub type Thread
-{
-    Thread(framestate: stack.FrameState, instructions: List(instruction.Instruction))
-}
-
 pub type Machine
 {
     Machine(module_instance: runtime.ModuleInstance, state: MachineState)
@@ -46,7 +25,7 @@ pub type Machine
 
 pub type MachineState
 {
-    MachineState(configuration: Configuration, stack: stack.Stack)
+    MachineState(store: store.Store, stack: stack.Stack) //runtime.ModuleInstance
 }
 
 pub fn initialize(from module: module.Module) -> Result(Machine, String)
@@ -56,7 +35,7 @@ pub fn initialize(from module: module.Module) -> Result(Machine, String)
     (
         datas: [],
         elements: [],
-        functions: [],
+        functions: dict.new(),
         globals: [],
         memories: [],
         tables: [],
@@ -95,7 +74,10 @@ pub fn initialize(from module: module.Module) -> Result(Machine, String)
     let module_instance = runtime.ModuleInstance
     (
         types: module.types,
-        function_addresses: list.index_map(store.functions, fn (_, index) { runtime.FunctionAddress(index) }),
+        function_addresses: store.functions
+                            |> dict.to_list
+                            |> list.map(fn (x) { #(address_to_int(x.0), x.0) })
+                            |> dict.from_list,
         table_addresses: [],
         memory_addresses: list.index_map(store.memories, fn (_, index) { runtime.MemoryAddress(index) }),
         global_addresses: [],
@@ -104,46 +86,30 @@ pub fn initialize(from module: module.Module) -> Result(Machine, String)
         exports: [],
     )
 
-    // Remaining configuration
-
-    let thread = Thread
+    let state = MachineState
     (
-        framestate: stack.FrameState(locals: dict.new(), module_instance: module_instance),
-        instructions: []
+        store: store,
+        stack: stack.create()
     )
-
-    let configuration = update_references(
-        from: Configuration(store: store, thread: thread),
-        with: module_instance
-    )
-
-    let state = MachineState(configuration: configuration, stack: stack.create())
 
     Ok(Machine(state: state, module_instance: module_instance))
-
 }
 
-pub fn update_references(from configuration: Configuration, with module_instance: runtime.ModuleInstance) -> Configuration
+pub fn update_references(from store: store.Store, with new_module_instance: runtime.ModuleInstance) -> store.Store
 {
-    let updated_functions = list.filter_map(configuration.store.functions, fn (function) {
-        case function
+    let updated_functions = dict.map_values(
+        in: store.functions,
+        with: fn (_address, function)
         {
-            runtime.WebAssemblyFunctionInstance(type_: type_, module_instance: _, code: code) -> Ok(runtime.WebAssemblyFunctionInstance(type_: type_, module_instance: module_instance, code: code))
-            _ -> Error(Nil)
+            case function
+            {
+                runtime.WebAssemblyFunctionInstance(type_: type_, module_instance: _, code: code) -> runtime.WebAssemblyFunctionInstance(type_: type_, module_instance: new_module_instance, code: code)
+                _ -> function
+            }
         }
-    })
-
-    let store = store.Store(..configuration.store, functions: updated_functions)
-
-    // Remaining configuration
-
-    let thread = Thread
-    (
-        framestate: stack.FrameState(..configuration.thread.framestate, module_instance: module_instance),
-        instructions: configuration.thread.instructions
     )
 
-    Configuration(store: store, thread: thread)
+    store.Store(..store, functions: updated_functions)
 }
 
 pub fn execute(state: MachineState, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
@@ -151,7 +117,7 @@ pub fn execute(state: MachineState, instructions: List(instruction.Instruction))
     use state <- result.try(
         list.fold(
             from: Ok(state),
-            over: instructions, //state.configuration.thread.instructions,
+            over: instructions,
             with: fn (current_state, instruction)
             {
                 use current_state <- result.try(current_state)
@@ -189,6 +155,7 @@ pub fn execute(state: MachineState, instructions: List(instruction.Instruction))
                     instruction.Loop(block_type:, instructions:) -> loop(current_state, block_type, instructions)
                     instruction.Br(index:) -> br(current_state, index)
                     instruction.BrIf(index:) -> br_if(current_state, index)
+                    instruction.Call(index:) -> call(current_state, index)
 
                     instruction.I32Const(value) -> integer_const(current_state, types.Integer32, value)
                     instruction.I64Const(value) -> integer_const(current_state, types.Integer64, value)
@@ -262,66 +229,84 @@ fn get_default_value_for_type(type_: types.ValueType) -> runtime.Value
     }
 }
 
-pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(runtime.Value)) -> Result(#(MachineState, List(runtime.Value)), String)
+pub fn call(state: MachineState, index: index.FunctionIndex) -> Result(MachineState, String)
 {
-    // We can do this because we are allocating functions in the same order as they appears in the Module's list.
-    // Maybe we can try using something else e.g. a Dict
-    let function_address = runtime.FunctionAddress(index)
+    // 1. Let F be the current frame.
+    use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.call: couldn't get the current frame"))
+    // 2. Assert: due to validation, F.{\mathsf{module}}.{\mathsf{funcaddrs}}[x] exists.
+    // 3. Let a be the function address F.{\mathsf{module}}.{\mathsf{funcaddrs}}[x].
+    use address <- result.try(result.replace_error(dict.get(frame.framestate.module_instance.function_addresses, index), "gwr/execution/machine.call: couldn't find the address of the function with index " <> int.to_string(index)))
+    // 4. Invoke the function instance at address a.
+    invoke(state, address)
+}
 
-    use function_instance <- result.try(
-        case state.configuration.store.functions |> list.take(up_to: address_to_int(function_address) + 1) |> list.last
-        {
-            Ok(function_instance) -> Ok(function_instance)
-            Error(_) -> Error("gwr/execution/machine.call: couldn't find a function instance with the give address \"" <> address_to_string(function_address) <> "\"")
-        }
-    )
-
+pub fn invoke(state: MachineState, address: runtime.Address) -> Result(MachineState, String)
+{
+    // 1. Assert: due to validation, S.{\mathsf{funcs}}[a] exists.
+    // 2. Let f be the function instance, S.{\mathsf{funcs}}[a].
+    use function_instance <- result.try(result.replace_error(dict.get(state.store.functions, address), "gwr/execution/machine.invoke: couldn't find the function instance with address " <> address_to_string(address)))
     case function_instance
     {
+        runtime.HostFunctionInstance(_, _) -> Error("@TODO: call host function")
         runtime.WebAssemblyFunctionInstance(type_: function_type, module_instance: function_module_instance, code: function_code) ->
         {
-            let function_arity = list.length(function_type.results)
-            let function_frame = stack.ActivationFrame
+            // 3. Let [t_1^n] {\rightarrow} [t_2^m] be the function type f.{\mathsf{type}}.
+            let n = list.length(function_type.parameters)
+            let m = list.length(function_type.results)
+            // 4. Let t^\ast be the list of value types f.{\mathsf{code}}.{\mathsf{locals}}.
+            let function_locals_types = function_code.locals
+            // 5. Let {\mathit{instr}}^\ast~{\mathsf{end}} be the expression f.{\mathsf{code}}.{\mathsf{body}}.
+            let function_instructions = function_code.body
+            // 6. Assert: due to validation, n values are on the top of the stack.
+            let count_of_values_on_top = stack.count_on_top(from: state.stack, with: stack.is_value)
+            use <- bool.guard(when: count_of_values_on_top != n, return: Error("gwr/execution/machine.invoke: expected the top of the stack to contains " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
+            // 7. Pop the values {\mathit{val}}^n from the stack.
+            let #(stack, values) = stack.pop_repeat(from: state.stack, up_to: n)
+            let values = list.map(values, stack.to_value)
+                         |> result.values
+                         |> list.reverse
+            // 8. Let F be the frame \{ {\mathsf{module}}~f.{\mathsf{module}}, {\mathsf{locals}}~{\mathit{val}}^n~({\mathrm{default}}_t)^\ast \}.
+            let framestate = stack.FrameState
             (
-                arity: function_arity, // "[...] Activation frames carry the return arity <n> of the respective function [...]"
-                framestate: stack.FrameState
-                (
-                    locals: arguments
-                            |> list.append(list.map(function_code.locals, get_default_value_for_type)) // function's arguments will be joined with function's locals
-                            |> list.index_map(fn (x, i) { #(i, x) })
-                            |> dict.from_list,
-                    module_instance: function_module_instance
-                )
+                locals: values
+                        |> list.append(list.map(function_locals_types, get_default_value_for_type)) // function's arguments will be joined with function's locals
+                        |> list.index_map(fn (x, i) { #(i, x) })
+                        |> dict.from_list,
+                module_instance: function_module_instance
             )
-            let state = MachineState
-            (
-                configuration: Configuration
-                (
-                    ..state.configuration,
-                    thread: Thread
-                    (
-                        framestate: function_frame.framestate,
-                        instructions: function_code.body
-                    )
-                ),
-                stack: stack.push(push: [stack.ActivationEntry(function_frame)], to: state.stack)
-            )
-
-            let label = stack.Label(arity: function_arity, continuation: [])
-            use state <- result.try(execute_with_label(state, label, state.configuration.thread.instructions, []))
-
-            let #(stack, result_values) = stack.pop_repeat(state.stack, function_arity)
-            let results = result.values(list.map(result_values, stack.to_value)) |> list.reverse
-            let count_of_results_returned = list.length(results)
-            use <- bool.guard(when: count_of_results_returned != function_arity, return: Error("gwr/execution/machine.call: expected " <> int.to_string(function_arity) <> " values but got only " <> int.to_string(count_of_results_returned)))
-
-            use #(stack, result_frame) <- result.try(stack.pop_as(from: stack, with: stack.to_activation_frame))
-            use <- bool.guard(when: result_frame != function_frame, return: Error("gwr/execution/machine.call: expected the last stack frame to be the calling function frame"))
-
-            Ok(#(MachineState(..state, stack: stack), results))
+            execute_with_frame(MachineState(..state, stack: stack), stack.Frame(arity: m, framestate: framestate), function_instructions)
         }
-        runtime.HostFunctionInstance(type_: _, code: _) -> Error("@TODO: call host function")
     }
+}
+
+pub fn execute_with_frame(state: MachineState, frame: stack.Frame, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
+{
+    // 9. Push the activation of F with arity m to the stack.
+    let stack = stack.push(to: state.stack, push: [stack.ActivationEntry(frame)])
+    // 10. Let L be the label whose arity is m and whose continuation is the end of the function.
+    let label = stack.Label(arity: frame.arity, continuation: [])
+    // 11. Enter the instruction sequence {\mathit{instr}}^\ast with label L.
+    use state <- result.try(execute_with_label(MachineState(..state, stack: stack), label, instructions, []))
+
+    // Returning from a function
+
+    // 1. Let F be the current frame.
+    use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.execute_with_frame: couldn't get the current frame"))
+    // 2. Let n be the arity of the activation of F.
+    let n = frame.arity
+    // 3. Assert: due to validation, there are n values on the top of the stack.
+    let count_of_values_on_top = stack.count_on_top(from: state.stack, with: stack.is_value)
+    use <- bool.guard(when: count_of_values_on_top != n, return: Error("gwr/execution/machine.execute_with_frame: expected the top of the stack to contains " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
+    // 4. Pop the results {\mathit{val}}^n from the stack.
+    let #(stack, values) = stack.pop_repeat(from: state.stack, up_to: n)
+    // 5. Assert: due to validation, the frame F is now on the top of the stack.
+    use <- bool.guard(when: stack.peek(stack) != option.Some(stack.ActivationEntry(frame)), return: Error("gwr/execution/machine.execute_with_frame: expected the current frame to be on the top of the stack"))
+    // 6. Pop the frame F from the stack.
+    let #(stack, _) = stack.pop(from: stack)
+    // 7. Push {\mathit{val}}^n back to the stack.
+    let stack = stack.push(to: stack, push: values |> list.reverse)
+    // 8. Jump to the instruction after the original call.
+    Ok(MachineState(..state, stack: stack))
 }
 
 pub fn br(state: MachineState, index: index.LabelIndex)
@@ -403,9 +388,10 @@ pub fn br_if(state: MachineState, index: index.LabelIndex)
 pub fn loop(state: MachineState, block_type: instruction.BlockType, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
 {
     // 1. Let F be the current frame.
+    use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.loop: couldn't get the current frame"))
     // 2. Assert: due to validation, {\mathrm{expand}}_F({\mathit{blocktype}}) is defined.
     // 3. Let [t_1^m] {\rightarrow} [t_2^n] be the function type {\mathrm{expand}}_F({\mathit{blocktype}}).
-    use function_type <- result.try(expand_block_type(state.configuration.thread.framestate, block_type))
+    use function_type <- result.try(expand_block_type(frame.framestate, block_type))
     let m = list.length(function_type.parameters)
     // let n = list.length(function_type.results)
     // 4. Let L be the label whose arity is m and whose continuation is the start of the loop.
@@ -422,9 +408,10 @@ pub fn loop(state: MachineState, block_type: instruction.BlockType, instructions
 pub fn block(state: MachineState, block_type: instruction.BlockType, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
 {
     // 1. Let F be the current frame.
+    use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.block: couldn't get the current frame"))
     // 2. Assert: due to validation, {\mathrm{expand}}_F({\mathit{blocktype}}) is defined.
     // 3. Let [t_1^m] {\rightarrow} [t_2^n] be the function type {\mathrm{expand}}_F({\mathit{blocktype}}).
-    use function_type <- result.try(expand_block_type(state.configuration.thread.framestate, block_type))
+    use function_type <- result.try(expand_block_type(frame.framestate, block_type))
     let m = list.length(function_type.parameters)
     let n = list.length(function_type.results)
     // 4. Let L be the label whose arity is n and whose continuation is the end of the block.
@@ -990,8 +977,12 @@ pub fn i32_add(state: MachineState) -> Result(MachineState, String)
 
 pub fn local_get(state: MachineState, index: index.LocalIndex) -> Result(MachineState, String)
 {
-    use local <- result.try(result.replace_error(dict.get(state.configuration.thread.framestate.locals, index), "gwr/execution/machine.local_get: couldn't get the local with index " <> int.to_string(index)))
-
+    // 1. Let F be the current frame.
+    use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.local_get: couldn't get the current frame"))
+    // 2. Assert: due to validation, F.{\mathsf{locals}}[x] exists.
+    // 3. Let {\mathit{val}} be the value F.{\mathsf{locals}}[x].
+    use local <- result.try(result.replace_error(dict.get(frame.framestate.locals, index), "gwr/execution/machine.local_get: couldn't get the local with index " <> int.to_string(index)))
+    // 4. Push the value {\mathit{val}} to the stack.
     let stack = stack.push(state.stack, [stack.ValueEntry(local)])
     Ok(MachineState(..state, stack: stack))
 }
@@ -999,30 +990,31 @@ pub fn local_get(state: MachineState, index: index.LocalIndex) -> Result(Machine
 pub fn local_set(state: MachineState, index: index.LocalIndex) -> Result(MachineState, String)
 {
     // 1. Let F be the current frame.
+    use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.local_set: couldn't get the current frame"))
     // 2. Assert: due to validation, F.locals[x] exists.
-    use _ <- result.try(result.replace_error(dict.get(state.configuration.thread.framestate.locals, index), "gwr/execution/machine.local_set: couldn't get the local with index " <> int.to_string(index)))
+    use _ <- result.try(result.replace_error(dict.get(frame.framestate.locals, index), "gwr/execution/machine.local_set: couldn't get the local with index " <> int.to_string(index)))
     
     // 3. Assert: due to validation, a value is on the top of the stack.
     // 4. Pop the value val from the stack.
     use #(stack, value) <- result.try(stack.pop_as(from: state.stack, with: stack.to_value))
 
     // 5. Replace F.locals[x] with the value val.
-    Ok(
-        MachineState
-        (
-            configuration: Configuration
-            (
-                ..state.configuration,
-                thread: Thread
+    use stack <- result.try(
+        result.replace_error(
+            stack.replace_current_frame(
+                from: stack,
+                with: stack.Frame
                 (
-                    ..state.configuration.thread,
+                    ..frame,
                     framestate: stack.FrameState
                     (
-                        ..state.configuration.thread.framestate,
-                        locals: dict.insert(into: state.configuration.thread.framestate.locals, for: index, insert: value)
+                        ..frame.framestate,
+                        locals: dict.insert(into: frame.framestate.locals, for: index, insert: value)
                     )
                 )
-            ), stack: stack
+            ),
+            "gwr/execution/machine.local_set: couldn't update the current frame"
         )
     )
+    Ok(MachineState(..state, stack: stack))
 }

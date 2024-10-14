@@ -18,7 +18,7 @@ pub type StackEntry
 {
     ValueEntry(runtime.Value)
     LabelEntry(Label)
-    ActivationEntry(ActivationFrame)
+    ActivationEntry(Frame)
 }
 
 /// Labels carry an argument arity <n> and their associated branch target, which is expressed
@@ -35,9 +35,9 @@ pub type Label
 /// a reference to the function’s own module instance:
 /// 
 /// https://webassembly.github.io/spec/core/exec/runtime.html#activation-frames
-pub type ActivationFrame
+pub type Frame
 {
-    ActivationFrame(arity: Int, framestate: FrameState)
+    Frame(arity: Int, framestate: FrameState)
 }
 
 /// https://webassembly.github.io/spec/core/exec/runtime.html#activation-frames
@@ -64,6 +64,11 @@ pub fn push(to stack: Stack, push new_entries: List(StackEntry)) -> Stack
 pub fn peek(from stack: Stack) -> option.Option(StackEntry)
 {
     option.from_result(list.last(stack.entries))
+}
+
+pub fn count_on_top(from stack: Stack, with predicate: fn (StackEntry) -> Bool) -> Int
+{
+    pop_while(from: stack, with: predicate).1 |> list.length
 }
 
 pub fn pop(from stack: Stack) -> #(Stack, option.Option(StackEntry))
@@ -195,11 +200,31 @@ pub fn to_label(entry: StackEntry) -> Result(Label, String)
     }
 }
 
-pub fn to_activation_frame(entry: StackEntry) -> Result(ActivationFrame, String)
+pub fn to_frame(entry: StackEntry) -> Result(Frame, String)
 {
     case entry
     {
-        ActivationEntry(activation_frame) -> Ok(activation_frame)
-        _ -> Error("gwr/execution/stack.to_activation_frame: the entry at the top of the stack is not a ActivationEntry")
+        ActivationEntry(frame) -> Ok(frame)
+        _ -> Error("gwr/execution/stack.to_frame: the entry at the top of the stack is not a ActivationEntry")
+    }
+}
+
+pub fn get_current_frame(from stack: Stack) -> Result(Frame, Nil)
+{
+    case pop_while(from: stack, with: fn (entry) { !is_activation_frame(entry) }).0 |> pop
+    {
+        #(_, option.Some(ActivationEntry(frame))) -> Ok(frame)
+        _ -> Error(Nil)
+    }
+}
+
+pub fn replace_current_frame(from stack: Stack, with new_frame: Frame) -> Result(Stack, Nil)
+{
+    let #(stack, upper_entries) = pop_while(from: stack, with: fn (entry) { !is_activation_frame(entry) })
+    let #(stack, frame) = pop(stack)
+    case frame
+    {
+        option.Some(ActivationEntry(_)) -> Ok(push(to: stack, push: [ActivationEntry(new_frame)] |> list.append(upper_entries |> list.reverse)))
+        _ -> Error(Nil)
     }
 }

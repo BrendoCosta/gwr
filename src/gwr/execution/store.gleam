@@ -1,3 +1,4 @@
+import gleam/dict
 import gleam/list
 
 import gwr/execution/runtime
@@ -14,7 +15,7 @@ pub type Store
 {
     Store
     (
-        functions: List(runtime.FunctionInstance),
+        functions: dict.Dict(runtime.Address, runtime.FunctionInstance),
         tables: List(runtime.TableInstance),
         memories: List(runtime.MemoryInstance),
         globals: List(runtime.GlobalInstance),
@@ -28,7 +29,7 @@ pub fn append_web_assembly_function(to store: Store, append function: module.Fun
     let empty_module_instance = runtime.ModuleInstance
     (
         types: [],
-        function_addresses: [],
+        function_addresses: dict.new(),
         table_addresses: [],
         memory_addresses: [],
         global_addresses: [],
@@ -37,9 +38,11 @@ pub fn append_web_assembly_function(to store: Store, append function: module.Fun
         exports: [],
     )
 
+    let function_address = runtime.FunctionAddress(dict.keys(store.functions) |> list.length)
+
     case types_list |> list.take(up_to: function.type_ + 1) |> list.last
     {
-        Ok(function_type) -> Ok(Store(..store, functions: list.append(store.functions, [runtime.WebAssemblyFunctionInstance(type_: function_type, module_instance: empty_module_instance, code: function)])))
+        Ok(function_type) -> Ok(Store(..store, functions: dict.insert(into: store.functions, for: function_address, insert: runtime.WebAssemblyFunctionInstance(type_: function_type, module_instance: empty_module_instance, code: function))))
         Error(_) -> Error("gwr/execution/store.append_function: couldn't find the type of the function among types list")
     }
 }

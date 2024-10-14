@@ -1,7 +1,9 @@
+import gleam/dict
 import gleam/dynamic
 import gleam/order
 import gleam/result
 
+import gwr/syntax/index
 import gwr/syntax/module
 import gwr/syntax/types
 import gwr/syntax/value
@@ -78,7 +80,7 @@ pub type ModuleInstance
     ModuleInstance
     (
         types: List(types.FunctionType),
-        function_addresses: List(Address),
+        function_addresses: dict.Dict(index.FunctionIndex, Address),
         table_addresses: List(Address),
         memory_addresses: List(Address),
         global_addresses: List(Address),
