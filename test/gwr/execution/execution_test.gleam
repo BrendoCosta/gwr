@@ -49,3 +49,11 @@ pub fn loop___test()
     let #(_, result) = gwr.call(instance, "loop_test", []) |> should.be_ok
     result |> should.equal([runtime.Integer32(10)])
 }
+
+pub fn call_test()
+{
+    let module_data = simplifile.read_bits(from: "./test/assets/control/call.wasm") |> should.be_ok
+    let instance = gwr.create(from: module_data) |> should.be_ok
+    let #(_, result) = gwr.call(instance, "call_test", [runtime.Integer32(5), runtime.Integer32(2)]) |> should.be_ok
+    result |> should.equal([runtime.Integer32(7)])
+}
