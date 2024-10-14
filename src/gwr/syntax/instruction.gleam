@@ -22,13 +22,14 @@ pub type Instruction
     If(block_type: BlockType, instructions: List(Instruction), else_: Option(Instruction))
     Else(instructions: Expression)
     Br(index: index.LabelIndex)
-    BrIf(label: index.LabelIndex)
+    BrIf(index: index.LabelIndex)
     BrTable(label: index.LabelIndex)
     Return
     Call(function: index.FunctionIndex)
     CallIndirect(table: index.TableIndex, type_: index.TypeIndex)
     /// https://webassembly.github.io/spec/core/binary/instructions.html#variable-instructions
     LocalGet(index: index.LocalIndex)
+    LocalSet(index: index.LocalIndex)
 
     /// https://webassembly.github.io/spec/core/binary/instructions.html#numeric-instructions
     

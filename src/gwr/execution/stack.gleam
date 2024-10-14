@@ -1,6 +1,8 @@
-import gleam/option
+import gleam/dict.{type Dict}
 import gleam/iterator
 import gleam/list
+import gleam/option
+import gleam/result
 
 import gwr/execution/runtime
 import gwr/syntax/instruction
@@ -41,7 +43,7 @@ pub type ActivationFrame
 /// https://webassembly.github.io/spec/core/exec/runtime.html#activation-frames
 pub type FrameState
 {
-    FrameState(locals: List(runtime.Value), module_instance: runtime.ModuleInstance)
+    FrameState(locals: Dict(Int, runtime.Value), module_instance: runtime.ModuleInstance)
 }
 
 pub fn create() -> Stack
@@ -71,8 +73,133 @@ pub fn pop(from stack: Stack) -> #(Stack, option.Option(StackEntry))
 
 pub fn pop_repeat(from stack: Stack, up_to count: Int)
 {
-    iterator.fold(from: #(stack, []), over: iterator.range(1, count), with: fn (state, _) {
-        let #(stack, results) = pop(state.0)
-        #(stack, list.append(state.1, [results]))
-    })
+    case count > 0
+    {
+        False -> #(stack, [])
+        True ->
+        {
+            iterator.fold(
+                from: #(stack, []),
+                over: iterator.range(1, count),
+                with: fn (accumulator, _)
+                {
+                    let #(stack_after_pop, maybe_popped_entry) = pop(accumulator.0)
+                    case maybe_popped_entry
+                    {
+                        option.Some(entry) -> #(stack_after_pop, accumulator.1 |> list.append([entry]))
+                        option.None -> #(stack_after_pop, accumulator.1)
+                    }
+                }
+            )
+        }
+    }
+}
+
+pub fn pop_all(from stack: Stack) -> #(Stack, List(StackEntry))
+{
+    #(create(), stack.entries |> list.reverse)
+}
+
+pub fn pop_while(from stack: Stack, with predicate: fn (StackEntry) -> Bool)
+{
+    do_pop_while(#(stack, []), predicate)
+}
+
+fn do_pop_while(accumulator: #(Stack, List(StackEntry)), predicate: fn (StackEntry) -> Bool) -> #(Stack, List(StackEntry))
+{
+    case peek(from: accumulator.0)
+    {
+        option.Some(entry) ->
+        {
+            case predicate(entry)
+            {
+                True -> do_pop_while(#(pop(accumulator.0).0, accumulator.1 |> list.append([entry])), predicate)
+                False -> #(accumulator.0, accumulator.1)
+            }
+        }
+        _ -> #(accumulator.0, accumulator.1)
+    }
+}
+
+pub fn pop_if(from stack: Stack, with predicate: fn (StackEntry) -> Bool) -> Result(#(Stack, StackEntry), Nil)
+{
+    case pop(from: stack)
+    {
+        #(stack, option.Some(entry)) ->
+        {
+            case predicate(entry)
+            {
+                True -> Ok(#(stack, entry))
+                False -> Error(Nil)
+            }
+        }
+        _ -> Error(Nil)
+    }
+}
+
+pub fn pop_as(from stack: Stack, with convert: fn (StackEntry) -> Result(a, String)) -> Result(#(Stack, a), String)
+{
+    case pop(from: stack)
+    {
+        #(stack, option.Some(entry)) ->
+        {
+            use value <- result.try(convert(entry))
+            Ok(#(stack, value))
+        }
+        _ -> Error("gwr/execution/stack.pop_as: the stack is empty")
+    }
+}
+
+pub fn is_value(entry: StackEntry) -> Bool
+{
+    case entry
+    {
+        ValueEntry(_) -> True
+        _ -> False
+    }
+}
+
+pub fn is_label(entry: StackEntry) -> Bool
+{
+    case entry
+    {
+        LabelEntry(_) -> True
+        _ -> False
+    }
+}
+
+pub fn is_activation_frame(entry: StackEntry) -> Bool
+{
+    case entry
+    {
+        ActivationEntry(_) -> True
+        _ -> False
+    }
+}
+
+pub fn to_value(entry: StackEntry) -> Result(runtime.Value, String)
+{
+    case entry
+    {
+        ValueEntry(value) -> Ok(value)
+        _ -> Error("gwr/execution/stack.to_value: the entry at the top of the stack is not a ValueEntry")
+    }
+}
+
+pub fn to_label(entry: StackEntry) -> Result(Label, String)
+{
+    case entry
+    {
+        LabelEntry(label) -> Ok(label)
+        _ -> Error("gwr/execution/stack.to_label: the entry at the top of the stack is not a LabelEntry")
+    }
+}
+
+pub fn to_activation_frame(entry: StackEntry) -> Result(ActivationFrame, String)
+{
+    case entry
+    {
+        ActivationEntry(activation_frame) -> Ok(activation_frame)
+        _ -> Error("gwr/execution/stack.to_activation_frame: the entry at the top of the stack is not a ActivationEntry")
+    }
 }

@@ -68,12 +68,27 @@ pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_r
                 use #(reader, expression) <- result.try(parse_expression(from: reader))
                 Ok(#(reader, instruction.Else(instructions: expression)))
             }
+            0xc ->
+            {
+                use #(reader, label_index) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
+                Ok(#(reader, instruction.Br(index: label_index)))
+            }
+            0xd ->
+            {
+                use #(reader, label_index) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
+                Ok(#(reader, instruction.BrIf(index: label_index)))
+            }
             // Variable Instructions
             // https://webassembly.github.io/spec/core/binary/instructions.html#variable-instructions
             0x20 ->
             {
                 use #(reader, local_index) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
                 Ok(#(reader, instruction.LocalGet(index: local_index)))
+            }
+            0x21 ->
+            {
+                use #(reader, local_index) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
+                Ok(#(reader, instruction.LocalSet(index: local_index)))
             }
             // Numeric Instructions
             // https://webassembly.github.io/spec/core/binary/instructions.html#numeric-instructions

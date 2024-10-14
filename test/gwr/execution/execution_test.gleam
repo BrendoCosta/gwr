@@ -41,3 +41,11 @@ pub fn if_else___else_scope___test()
     let #(_, result) = gwr.call(instance, "if_else_test", [runtime.Integer32(1)]) |> should.be_ok
     result |> should.equal([runtime.Integer32(120)])
 }
+
+pub fn loop___test()
+{
+    let module_data = simplifile.read_bits(from: "./test/assets/control/loop.wasm") |> should.be_ok
+    let instance = gwr.create(from: module_data) |> should.be_ok
+    let #(_, result) = gwr.call(instance, "loop_test", []) |> should.be_ok
+    result |> should.equal([runtime.Integer32(10)])
+}

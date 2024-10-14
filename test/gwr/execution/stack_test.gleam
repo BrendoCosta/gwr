@@ -1,5 +1,3 @@
-import gleam/option
-
 import gwr/execution/runtime
 import gwr/execution/stack
 
@@ -32,9 +30,11 @@ pub fn push___once___test()
 pub fn push___multiple___test()
 {
     let stack = stack.create()
-    |> stack.push([stack.ValueEntry(runtime.Integer32(1))])
-    |> stack.push([stack.ValueEntry(runtime.Integer32(2))])
-    |> stack.push([stack.ValueEntry(runtime.Integer32(3))])
+    |> stack.push([
+        stack.ValueEntry(runtime.Integer32(1)),
+        stack.ValueEntry(runtime.Integer32(2)),
+        stack.ValueEntry(runtime.Integer32(3))
+    ])
 
     stack.peek(stack)
     |> should.be_some
@@ -91,11 +91,31 @@ pub fn pop_repeat_test()
     let #(stack, result) = stack.pop_repeat(stack, 3)
     result
     |> should.equal([
-        option.Some(stack.ValueEntry(runtime.Integer32(3))),
-        option.Some(stack.ValueEntry(runtime.Integer32(2))),
-        option.Some(stack.ValueEntry(runtime.Integer32(1)))
+        stack.ValueEntry(runtime.Integer32(3)),
+        stack.ValueEntry(runtime.Integer32(2)),
+        stack.ValueEntry(runtime.Integer32(1))
     ])
 
     stack.peek(stack)
     |> should.be_none
+}
+
+pub fn pop_while_test()
+{
+    let stack = stack.create()
+    |> stack.push([stack.ValueEntry(runtime.Integer32(1))])
+    |> stack.push([stack.LabelEntry(stack.Label(arity: 0, continuation: []))])
+    |> stack.push([stack.ValueEntry(runtime.Integer32(2))])
+    |> stack.push([stack.ValueEntry(runtime.Integer32(3))])
+
+    let #(stack, result) = stack.pop_while(stack, stack.is_value)
+    result
+    |> should.equal([
+        stack.ValueEntry(runtime.Integer32(3)),
+        stack.ValueEntry(runtime.Integer32(2))
+    ])
+
+    stack.peek(stack)
+    |> should.be_some
+    |> should.equal(stack.LabelEntry(stack.Label(arity: 0, continuation: [])))
 }

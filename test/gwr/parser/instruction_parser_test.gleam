@@ -162,3 +162,29 @@ pub fn parse_instruction___local_get___test()
         )
     )
 }
+
+pub fn parse_instruction___br___test()
+{
+    let reader = byte_reader.create(from: <<0x0c, 0xff, 0x01>>)
+    instruction_parser.parse_instruction(reader)
+    |> should.be_ok
+    |> should.equal(
+        #(
+            byte_reader.ByteReader(..reader, current_position: 3),
+            instruction.Br(index: 255)
+        )
+    )
+}
+
+pub fn parse_instruction___br_if___test()
+{
+    let reader = byte_reader.create(from: <<0x0d, 0x80, 0x80, 0x04>>)
+    instruction_parser.parse_instruction(reader)
+    |> should.be_ok
+    |> should.equal(
+        #(
+            byte_reader.ByteReader(..reader, current_position: 4),
+            instruction.BrIf(index: 65536)
+        )
+    )
+}

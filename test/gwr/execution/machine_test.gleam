@@ -1,3 +1,5 @@
+import gleam/dict
+import gleam/int
 import gleam/io
 import gleam/list
 import gleam/string
@@ -36,7 +38,7 @@ fn create_empty_state() -> machine.MachineState
             (
                 framestate: stack.FrameState
                 (
-                    locals: [],
+                    locals: dict.new(),
                     module_instance: runtime.ModuleInstance
                     (
                         data_addresses: [],
@@ -1119,7 +1121,7 @@ pub fn local_get_test()
                 framestate: stack.FrameState
                 (
                     ..state.configuration.thread.framestate,
-                    locals: [runtime.Integer32(2), runtime.Integer32(256), runtime.Integer32(512)] // 0, 1, 2
+                    locals: dict.from_list([#(0, runtime.Integer32(2)), #(1, runtime.Integer32(256)), #(2, runtime.Integer32(512))])
                 )
             )
         )
@@ -1130,4 +1132,41 @@ pub fn local_get_test()
     stack.peek(state.stack)
     |> should.be_some
     |> should.equal(stack.ValueEntry(runtime.Integer32(256)))
+}
+
+pub fn local_set_test()
+{
+    let state = create_empty_state()
+    let state = machine.MachineState
+    (
+        configuration: machine.Configuration
+        (
+            ..state.configuration,
+            thread: machine.Thread
+            (
+                ..state.configuration.thread,
+                framestate: stack.FrameState
+                (
+                    ..state.configuration.thread.framestate,
+                    locals: dict.from_list([
+                        #(0, runtime.Integer32(2)),
+                        #(1, runtime.Integer32(256)),
+                        #(2, runtime.Integer32(512))
+                    ])
+                )
+            )
+        ),
+        stack: stack.create() |> stack.push([stack.ValueEntry(runtime.Integer32(1024))])
+    )
+
+    let state = machine.local_set(state, 2) |> should.be_ok
+    
+    state.configuration.thread.framestate.locals
+    |> dict.to_list
+    |> list.sort(by: fn (a, b) { int.compare(a.0, b.0) }) // Order by the local's index
+    |> should.equal([
+        #(0, runtime.Integer32(2)),
+        #(1, runtime.Integer32(256)),
+        #(2, runtime.Integer32(1024))
+    ])
 }

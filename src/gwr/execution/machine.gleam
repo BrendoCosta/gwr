@@ -1,10 +1,12 @@
 import gleam/bool
+import gleam/dict
 import gleam/int
+import gleam/iterator
 import gleam/list
-import gleam/result
-import gleam/string
 import gleam/order
 import gleam/option
+import gleam/result
+import gleam/string
 
 import gwr/execution/runtime
 import gwr/execution/stack
@@ -106,7 +108,7 @@ pub fn initialize(from module: module.Module) -> Result(Machine, String)
 
     let thread = Thread
     (
-        framestate: stack.FrameState(locals: [], module_instance: module_instance),
+        framestate: stack.FrameState(locals: dict.new(), module_instance: module_instance),
         instructions: []
     )
 
@@ -144,147 +146,49 @@ pub fn update_references(from configuration: Configuration, with module_instance
     Configuration(store: store, thread: thread)
 }
 
-pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(runtime.Value)) -> Result(#(MachineState, List(runtime.Value)), String)
-{
-    // We can do this because we are allocating functions in the same order as they appears in the Module's list.
-    // Maybe we can try using something else e.g. a Dict
-    let function_address = runtime.FunctionAddress(index)
-
-    use function_instance <- result.try(
-        case state.configuration.store.functions |> list.take(up_to: address_to_int(function_address) + 1) |> list.last
-        {
-            Ok(function_instance) -> Ok(function_instance)
-            Error(_) -> Error("gwr/execution/machine.call: couldn't find a function instance with the give address \"" <> address_to_string(function_address) <> "\"")
-        }
-    )
-
-    case function_instance
-    {
-        runtime.WebAssemblyFunctionInstance(type_: function_type, module_instance: function_module_instance, code: function_code) ->
-        {
-            let function_locals = list.fold(
-                from: arguments, // function's arguments will be joined with function's locals
-                over: function_code.locals,
-                with: fn (function_locals, local) {
-                let value = case local
-                {
-                    types.Number(types.Integer32) -> runtime.Integer32(runtime.number_value_default_value)
-                    types.Number(types.Integer64) -> runtime.Integer64(runtime.number_value_default_value)
-                    types.Number(types.Float32) -> runtime.Float32(runtime.Finite(int.to_float(runtime.number_value_default_value)))
-                    types.Number(types.Float64) -> runtime.Float64(runtime.Finite(int.to_float(runtime.number_value_default_value)))
-                    types.Vector(types.Vector128) -> runtime.Vector(runtime.vector_value_default_value)
-                    types.Reference(types.FunctionReference) -> runtime.Reference(runtime.NullReference)
-                    types.Reference(types.ExternReference) -> runtime.Reference(runtime.NullReference)
-                }
-                list.append(function_locals, [value])
-            })
-            let function_arity = list.length(function_type.results)
-            let function_frame = stack.ActivationFrame
-            (
-                arity: function_arity, // "[...] Activation frames carry the return arity <n> of the respective function [...]"
-                framestate: stack.FrameState
-                (
-                    locals: function_locals,
-                    module_instance: function_module_instance
-                )
-            )
-            let new_state_stack = stack.push(push: [stack.ActivationEntry(function_frame)], to: state.stack)
-            let new_state_configuration = Configuration(..state.configuration, thread: Thread(framestate: function_frame.framestate, instructions: function_code.body))
-            let new_state = MachineState(configuration: new_state_configuration, stack: new_state_stack)
-
-            use after_state <- result.try(execute_with_label(new_state, stack.Label(arity: function_arity, continuation: []), []))
-
-            let #(result_stack, result_values) = stack.pop_repeat(after_state.stack, function_frame.arity)
-
-            use <- bool.guard(when: option.values([stack.peek(result_stack)]) != [stack.ActivationEntry(function_frame)], return: Error("gwr/execution/machine.call: expected the last stack frame to be the calling function frame"))
-
-            let result_values = option.values(result_values)
-            let result_arity = list.length(result_values)
-            use <- bool.guard(when: result_arity != function_frame.arity, return: Error("gwr/execution/machine.call: expected " <> int.to_string(function_frame.arity) <> " values but got only " <> int.to_string(result_arity)))
-
-            let results = list.filter_map(result_values, fn (entry) {
-                case entry
-                {
-                    stack.ValueEntry(v) -> Ok(v)
-                    _ -> Error(Nil)
-                }
-            })
-
-            Ok(#(MachineState(..after_state, stack: result_stack), results))
-        }
-        runtime.HostFunctionInstance(type_: _, code: _) -> Error("@TODO: call host function")
-    }
-}
-
-pub fn expand_block_type(framestate: stack.FrameState, block_type: instruction.BlockType) -> Result(types.FunctionType, String)
-{
-    case block_type
-    {
-        instruction.TypeIndexBlock(index) -> result.replace_error(framestate.module_instance.types |> list.take(up_to: index + 1) |> list.last, "gwr/execution/machine.expand: couldn't find the function type with index \"" <> int.to_string(index) <> "\"")
-        instruction.ValueTypeBlock(type_: option.Some(valtype)) -> Ok(types.FunctionType(parameters: [], results: [valtype]))
-        instruction.ValueTypeBlock(type_: option.None) -> Ok(types.FunctionType(parameters: [], results: []))
-    }
-}
-
-pub fn execute_with_label(state: MachineState, label: stack.Label, parameters: List(stack.StackEntry)) -> Result(MachineState, String)
-{
-    let label_entry = stack.LabelEntry(label)
-    let state_to_be_executed = MachineState(..state, stack: stack.push(state.stack, [label_entry] |> list.append(parameters)))
-    use state_after_execution <- result.try(execute(state_to_be_executed))
-    use #(stack_after_label_popped, results) <- result.try(
-        {
-            let #(stack_after_results_popped, results) = stack.pop_repeat(from: state_after_execution.stack, up_to: label.arity)
-            case stack.pop(stack_after_results_popped)
-            {
-                #(stack_after_label_popped, option.Some(entry)) if entry == label_entry -> Ok(#(stack_after_label_popped, results))
-                #(_, anything_else) -> Error("gwr/execution/machine.execute_with_label: expected the label " <> string.inspect(option.Some(label_entry)) <> " pushed to the stack before execution but got " <> string.inspect(anything_else))
-            }
-        }
-    )
-    
-    Ok(MachineState(..state, stack: stack.push(stack_after_label_popped, option.values(results))))
-}
-
-pub fn execute(state: MachineState) -> Result(MachineState, String)
+pub fn execute(state: MachineState, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
 {
     use state <- result.try(
         list.fold(
             from: Ok(state),
-            over: state.configuration.thread.instructions,
+            over: instructions, //state.configuration.thread.instructions,
             with: fn (current_state, instruction)
             {
                 use current_state <- result.try(current_state)
                 case instruction
                 {
                     instruction.End -> Ok(current_state)
-                    instruction.Block(block_type: bt, instructions: inst) -> block_instruction(current_state, bt, inst, [])
-                    instruction.If(block_type: bt, instructions: if_instructions, else_: else_) ->
+                    instruction.Block(block_type:, instructions:) -> block(current_state, block_type, instructions)
+                    instruction.If(block_type:, instructions: if_instructions, else_: else_) ->
                     {
-                        // Assert: due to validation, a value of value type "i32" is on the top of the stack.
-                        // Pop the value i32.const "c" from the stack.
-                        case stack.pop(current_state.stack)
+                        // 1. Assert: due to validation, a value of value type {\mathsf{i32}} is on the top of the stack.
+                        // 2. Pop the value {\mathsf{i32}}.{\mathsf{const}}~c from the stack.
+                        case stack.pop_as(from: current_state.stack, with: stack.to_value)
                         {
-                            #(stack, option.Some(stack.ValueEntry(runtime.Integer32(c)))) ->
+                            Ok(#(stack, runtime.Integer32(c))) ->
                             {
                                 let state = MachineState(..current_state, stack: stack)
                                 case c != 0
                                 {
-                                    // If "c" is non-zero, then:
-                                    //     Execute the block instruction "block blocktype instr*1 end".
-                                    True -> block_instruction(state, bt, if_instructions, [])
-                                    // Else:
-                                    //     Execute the block instruction "block blocktype instr*2 end".
+                                    // 3. If c is non-zero, then:
+                                    //     a. Execute the block instruction {\mathsf{block}}~{\mathit{blocktype}}~{\mathit{instr}}_1^\ast~{\mathsf{end}}.
+                                    True -> block(state, block_type, if_instructions)
+                                    // 4. Else:
+                                    //     a. Execute the block instruction {\mathsf{block}}~{\mathit{blocktype}}~{\mathit{instr}}_2^\ast~{\mathsf{end}}.
                                     False -> case else_
                                     {
-                                        option.Some(instruction.Else(else_instructions)) -> block_instruction(state, bt, else_instructions, [])
+                                        option.Some(instruction.Else(else_instructions)) -> block(state, block_type, else_instructions)
                                         option.None -> Ok(state)
-                                        anything_else -> Error("gwr/execution/machine.execute: illegal instruction in the Else's field " <> string.inspect(anything_else))
+                                        anything_else -> Error("gwr/execution/machine.execute: (If/Else) illegal instruction in the Else's field " <> string.inspect(anything_else))
                                     }
                                 }
                             }
-                            #(_, anything_else) -> Error("gwr/execution/machine.execute: expected the If's continuation flag but got " <> string.inspect(anything_else))
+                            anything_else -> Error("gwr/execution/machine.execute: (If/Else) expected the If's continuation flag but got " <> string.inspect(anything_else))
                         }
                     }
+                    instruction.Loop(block_type:, instructions:) -> loop(current_state, block_type, instructions)
+                    instruction.Br(index:) -> br(current_state, index)
+                    instruction.BrIf(index:) -> br_if(current_state, index)
 
                     instruction.I32Const(value) -> integer_const(current_state, types.Integer32, value)
                     instruction.I64Const(value) -> integer_const(current_state, types.Integer64, value)
@@ -333,6 +237,7 @@ pub fn execute(state: MachineState) -> Result(MachineState, String)
                     instruction.I64Popcnt -> integer_popcnt(current_state, types.Integer64)
                     
                     instruction.LocalGet(index) -> local_get(current_state, index)
+                    instruction.LocalSet(index) -> local_set(current_state, index)
                     instruction.I32Add -> i32_add(current_state)
                     unknown -> Error("gwr/execution/machine.execute: unknown instruction \"" <> string.inspect(unknown) <> "\"")
                 }
@@ -340,6 +245,222 @@ pub fn execute(state: MachineState) -> Result(MachineState, String)
         )
     )
 
+    Ok(state)
+}
+
+fn get_default_value_for_type(type_: types.ValueType) -> runtime.Value
+{
+    case type_
+    {
+        types.Number(types.Integer32) -> runtime.Integer32(runtime.number_value_default_value)
+        types.Number(types.Integer64) -> runtime.Integer64(runtime.number_value_default_value)
+        types.Number(types.Float32) -> runtime.Float32(runtime.Finite(int.to_float(runtime.number_value_default_value)))
+        types.Number(types.Float64) -> runtime.Float64(runtime.Finite(int.to_float(runtime.number_value_default_value)))
+        types.Vector(types.Vector128) -> runtime.Vector(runtime.vector_value_default_value)
+        types.Reference(types.FunctionReference) -> runtime.Reference(runtime.NullReference)
+        types.Reference(types.ExternReference) -> runtime.Reference(runtime.NullReference)
+    }
+}
+
+pub fn call(state: MachineState, index: index.FunctionIndex, arguments: List(runtime.Value)) -> Result(#(MachineState, List(runtime.Value)), String)
+{
+    // We can do this because we are allocating functions in the same order as they appears in the Module's list.
+    // Maybe we can try using something else e.g. a Dict
+    let function_address = runtime.FunctionAddress(index)
+
+    use function_instance <- result.try(
+        case state.configuration.store.functions |> list.take(up_to: address_to_int(function_address) + 1) |> list.last
+        {
+            Ok(function_instance) -> Ok(function_instance)
+            Error(_) -> Error("gwr/execution/machine.call: couldn't find a function instance with the give address \"" <> address_to_string(function_address) <> "\"")
+        }
+    )
+
+    case function_instance
+    {
+        runtime.WebAssemblyFunctionInstance(type_: function_type, module_instance: function_module_instance, code: function_code) ->
+        {
+            let function_arity = list.length(function_type.results)
+            let function_frame = stack.ActivationFrame
+            (
+                arity: function_arity, // "[...] Activation frames carry the return arity <n> of the respective function [...]"
+                framestate: stack.FrameState
+                (
+                    locals: arguments
+                            |> list.append(list.map(function_code.locals, get_default_value_for_type)) // function's arguments will be joined with function's locals
+                            |> list.index_map(fn (x, i) { #(i, x) })
+                            |> dict.from_list,
+                    module_instance: function_module_instance
+                )
+            )
+            let state = MachineState
+            (
+                configuration: Configuration
+                (
+                    ..state.configuration,
+                    thread: Thread
+                    (
+                        framestate: function_frame.framestate,
+                        instructions: function_code.body
+                    )
+                ),
+                stack: stack.push(push: [stack.ActivationEntry(function_frame)], to: state.stack)
+            )
+
+            let label = stack.Label(arity: function_arity, continuation: [])
+            use state <- result.try(execute_with_label(state, label, state.configuration.thread.instructions, []))
+
+            let #(stack, result_values) = stack.pop_repeat(state.stack, function_arity)
+            let results = result.values(list.map(result_values, stack.to_value)) |> list.reverse
+            let count_of_results_returned = list.length(results)
+            use <- bool.guard(when: count_of_results_returned != function_arity, return: Error("gwr/execution/machine.call: expected " <> int.to_string(function_arity) <> " values but got only " <> int.to_string(count_of_results_returned)))
+
+            use #(stack, result_frame) <- result.try(stack.pop_as(from: stack, with: stack.to_activation_frame))
+            use <- bool.guard(when: result_frame != function_frame, return: Error("gwr/execution/machine.call: expected the last stack frame to be the calling function frame"))
+
+            Ok(#(MachineState(..state, stack: stack), results))
+        }
+        runtime.HostFunctionInstance(type_: _, code: _) -> Error("@TODO: call host function")
+    }
+}
+
+pub fn br(state: MachineState, index: index.LabelIndex)
+{
+    // 1. Assert: due to validation, the stack contains at least l+1 labels.
+    let all_labels = stack.pop_all(from: state.stack).1 |> list.filter(stack.is_label)
+    let count_of_labels_in_stack = all_labels |> list.length
+    use <- bool.guard(when: count_of_labels_in_stack < index + 1, return: Error("gwr/execution/machine.branch: expected the stack to contains at least " <> int.to_string(index + 1) <> " labels but got " <> int.to_string(count_of_labels_in_stack)))
+    // 2. Let L be the l-th label appearing on the stack, starting from the top and counting from zero.
+    // 3. Let n be the arity of L.
+    use label_entry <- result.try(result.replace_error(all_labels |> list.take(up_to: index + 1) |> list.last, "gwr/execution/machine.branch: couldn't find the label with index " <> int.to_string(index)))
+    use label <- result.try(stack.to_label(label_entry))
+    let n = label.arity
+    // 4. Assert: due to validation, there are at least n values on the top of the stack.
+    let count_of_values_on_top = stack.pop_while(from: state.stack, with: stack.is_value).1 |> list.length
+    use <- bool.guard(when: count_of_values_on_top < n, return: Error("gwr/execution/machine.branch: expected the top of the stack to contains at least " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
+    // 5. Pop the values {\mathit{val}}^n from the stack.
+    let #(stack, values) = stack.pop_repeat(state.stack, n)
+    
+    // @NOTE: while the procedure described in the specification for
+    // "exiting an instruction sequence with a label" simply discards
+    // the previous labels, here we are going to collect and put them
+    // right below the continuation values in the stack. That way they
+    // won't interfere with the execution at all, plus the execute_with_label
+    // function will not throw us an error complaining about missing
+    // labels.
+
+    // 6. Repeat l+1 times:
+    use #(stack, popped_labels) <- result.try(
+        iterator.fold(
+            from: Ok(#(stack, [])),
+            over: iterator.range(1, index + 1),
+            with: fn (accumulator, _)
+            {
+                use #(stack, popped_labels) <- result.try(accumulator)
+                // a. While the top of the stack is a value, do:
+                //     i. Pop the value from the stack.
+                let #(stack, _) = stack.pop_while(from: stack, with: stack.is_value)
+                // b. Assert: due to validation, the top of the stack now is a label.
+                // c. Pop the label from the stack.
+                case stack.pop(from: stack)
+                {
+                    #(stack, option.Some(popped_label)) -> Ok(#(stack, popped_labels |> list.append([popped_label])))
+                    #(_, anything_else) -> Error("gwr/execution/machine.branch: expected the top of the stack to contain a label but got " <> string.inspect(anything_else))
+                }
+            }
+        )
+    )
+
+    // 7. Push the values {\mathit{val}}^n to the stack.
+    let stack = stack.push(to: stack, push: popped_labels |> list.append(values) |> list.reverse)
+    // 8. Jump to the continuation of L.
+    execute(MachineState(..state, stack: stack), label.continuation)
+}
+
+pub fn br_if(state: MachineState, index: index.LabelIndex)
+{
+    // 1. Assert: due to validation, a value of value type {\mathsf{i32}} is on the top of the stack.
+    // 2. Pop the value {\mathsf{i32}}.{\mathsf{const}}~c from the stack.
+    case stack.pop(from: state.stack)
+    {
+        #(stack, option.Some(stack.ValueEntry(runtime.Integer32(c)))) ->
+        {
+            let state = MachineState(..state, stack: stack)
+            // 3. If c is non-zero, then:
+            case c != 0
+            {
+                // a. Execute the instruction {\mathsf{br}}~l.
+                True -> br(state, index)
+                // 4. Else:
+                //     b. Do nothing.
+                False -> Ok(state)
+            }
+        }
+        _ -> Error("gwr/execution/machine.br_if: expected the top of the stack to contain an i32 value")
+    }
+}
+
+pub fn loop(state: MachineState, block_type: instruction.BlockType, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
+{
+    // 1. Let F be the current frame.
+    // 2. Assert: due to validation, {\mathrm{expand}}_F({\mathit{blocktype}}) is defined.
+    // 3. Let [t_1^m] {\rightarrow} [t_2^n] be the function type {\mathrm{expand}}_F({\mathit{blocktype}}).
+    use function_type <- result.try(expand_block_type(state.configuration.thread.framestate, block_type))
+    let m = list.length(function_type.parameters)
+    // let n = list.length(function_type.results)
+    // 4. Let L be the label whose arity is m and whose continuation is the start of the loop.
+    let label = stack.Label(arity: m, continuation: [instruction.Loop(block_type: block_type, instructions: instructions)])
+    // 5. Assert: due to validation, there are at least m values on the top of the stack.
+    let count_of_values_on_top = stack.pop_while(from: state.stack, with: stack.is_value).1 |> list.length
+    use <- bool.guard(when: count_of_values_on_top < m, return: Error("gwr/execution/machine.execute: (Loop) expected the top of the stack to contains at least " <> int.to_string(m) <> " values but got " <> int.to_string(count_of_values_on_top)))
+    // 6. Pop the values {\mathit{val}}^m from the stack.
+    let #(stack, values) = stack.pop_repeat(from: state.stack, up_to: m)
+    // 7. Enter the block {\mathit{val}}^m~{\mathit{instr}}^\ast with label L.
+    execute_with_label(MachineState(..state, stack: stack), label, instructions, values |> list.reverse)
+}
+
+pub fn block(state: MachineState, block_type: instruction.BlockType, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
+{
+    // 1. Let F be the current frame.
+    // 2. Assert: due to validation, {\mathrm{expand}}_F({\mathit{blocktype}}) is defined.
+    // 3. Let [t_1^m] {\rightarrow} [t_2^n] be the function type {\mathrm{expand}}_F({\mathit{blocktype}}).
+    use function_type <- result.try(expand_block_type(state.configuration.thread.framestate, block_type))
+    let m = list.length(function_type.parameters)
+    let n = list.length(function_type.results)
+    // 4. Let L be the label whose arity is n and whose continuation is the end of the block.
+    let label = stack.Label(arity: n, continuation: [])
+    // 5. Assert: due to validation, there are at least m values on the top of the stack.
+    let count_of_values_on_top = stack.pop_while(from: state.stack, with: stack.is_value).1 |> list.length
+    use <- bool.guard(when: count_of_values_on_top < m, return: Error("gwr/execution/machine.block: expected the top of the stack to contains at least " <> int.to_string(m) <> " values but got " <> int.to_string(count_of_values_on_top)))
+    // 6. Pop the values {\mathit{val}}^m from the stack.
+    let #(stack, values) = stack.pop_repeat(from: state.stack, up_to: m)
+    // 7. Enter the block {\mathit{val}}^m~{\mathit{instr}}^\ast with label L.
+    execute_with_label(MachineState(..state, stack: stack), label, instructions, values |> list.reverse)
+}
+
+pub fn execute_with_label(state: MachineState, label: stack.Label, instructions: List(instruction.Instruction), parameters: List(stack.StackEntry)) -> Result(MachineState, String)
+{
+    // Entering {\mathit{instr}}^\ast with label L
+    // 1. Push L to the stack.
+    let state = MachineState(..state, stack: stack.push(state.stack, [stack.LabelEntry(label)] |> list.append(parameters) ))
+    // 2. Jump to the start of the instruction sequence {\mathit{instr}}^\ast.
+    use state <- result.try(execute(state, instructions))
+    
+    // Exiting {\mathit{instr}}^\ast with label L
+    // 1. Pop all values {\mathit{val}}^\ast from the top of the stack.
+    let #(stack, values) = stack.pop_while(from: state.stack, with: stack.is_value)
+    // 2. Assert: due to validation, the label L is now on the top of the stack.
+    // 3. Pop the label from the stack.
+    use stack <- result.try(
+        case stack.pop(stack)
+        {
+            #(stack, option.Some(stack.LabelEntry(some_label))) if some_label == label -> Ok(stack)
+            #(_, anything_else) -> Error("gwr/execution/machine.execute_with_label: expected the label " <> string.inspect(label) <> " pushed to the stack before execution but got " <> string.inspect(anything_else))
+        }
+    )
+    // 4. Push {\mathit{val}}^\ast back to the stack.
+    let state = MachineState(..state, stack: stack.push(to: stack, push: values |> list.reverse))
+    // 5. Jump to the position after the {\mathsf{end}} of the structured control instruction associated with the label L.
     Ok(state)
 }
 
@@ -362,17 +483,14 @@ pub fn address_to_string(address: runtime.Address) -> String
     int.to_string(address_to_int(address))
 }
 
-pub fn block_instruction(state: MachineState, block_type: instruction.BlockType, block_instructions: List(instruction.Instruction), block_continuation: List(instruction.Instruction))
+pub fn expand_block_type(framestate: stack.FrameState, block_type: instruction.BlockType) -> Result(types.FunctionType, String)
 {
-    use function_type <- result.try(expand_block_type(state.configuration.thread.framestate, block_type))
-    let arity = list.length(function_type.results)
-    let label = stack.Label(arity: arity, continuation: block_continuation)
-    // @TODO Assert: due to validation, there are at least <m> values on the top of the stack.
-    let #(stack, parameters) = stack.pop_repeat(from: state.stack, up_to: label.arity)
-    // Change thread's instructions to the block's instructions
-    use after_state <- result.try(execute_with_label(MachineState(configuration: Configuration(..state.configuration, thread: Thread(..state.configuration.thread, instructions: block_instructions)), stack: stack), label, option.values(parameters)))
-    // Change thread's instructions back
-    Ok(MachineState(..after_state, configuration: Configuration(..after_state.configuration, thread: Thread(..after_state.configuration.thread, instructions: state.configuration.thread.instructions))))
+    case block_type
+    {
+        instruction.TypeIndexBlock(index) -> result.replace_error(framestate.module_instance.types |> list.take(up_to: index + 1) |> list.last, "gwr/execution/machine.expand: couldn't find the function type with index \"" <> int.to_string(index) <> "\"")
+        instruction.ValueTypeBlock(type_: option.Some(valtype)) -> Ok(types.FunctionType(parameters: [], results: [valtype]))
+        instruction.ValueTypeBlock(type_: option.None) -> Ok(types.FunctionType(parameters: [], results: []))
+    }
 }
 
 pub type BinaryOperationHandler
@@ -391,7 +509,7 @@ pub fn binary_operation(state: MachineState, type_: types.NumberType, operation_
 {
     let #(stack, values) = stack.pop_repeat(state.stack, 2)
     use result <- result.try(
-        case type_, operation_handler, option.values(values)
+        case type_, operation_handler, values
         {
               types.Integer32, IntegerBinaryOperation(handler), [stack.ValueEntry(runtime.Integer32(value: b)), stack.ValueEntry(runtime.Integer32(value: a))] 
             | types.Integer64, IntegerBinaryOperation(handler), [stack.ValueEntry(runtime.Integer64(value: b)), stack.ValueEntry(runtime.Integer64(value: a))] ->
@@ -859,7 +977,7 @@ pub fn i32_add(state: MachineState) -> Result(MachineState, String)
 {
     let #(stack, values) = stack.pop_repeat(state.stack, 2)
     use result <- result.try(
-        case option.values(values)
+        case values
         {
             [stack.ValueEntry(runtime.Integer32(value: a)), stack.ValueEntry(runtime.Integer32(value: b))] -> Ok(a + b)
             anything_else -> Error("gwr/execution/machine.i32_add: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
@@ -872,14 +990,39 @@ pub fn i32_add(state: MachineState) -> Result(MachineState, String)
 
 pub fn local_get(state: MachineState, index: index.LocalIndex) -> Result(MachineState, String)
 {
-    use local <- result.try(
-        case state.configuration.thread.framestate.locals |> list.take(up_to: index + 1) |> list.last
-        {
-            Ok(v) -> Ok(v)
-            Error(_) -> Error("gwr/execution/machine.local_get: couldn't get the local with index " <> int.to_string(index))
-        }
-    )
+    use local <- result.try(result.replace_error(dict.get(state.configuration.thread.framestate.locals, index), "gwr/execution/machine.local_get: couldn't get the local with index " <> int.to_string(index)))
 
     let stack = stack.push(state.stack, [stack.ValueEntry(local)])
     Ok(MachineState(..state, stack: stack))
+}
+
+pub fn local_set(state: MachineState, index: index.LocalIndex) -> Result(MachineState, String)
+{
+    // 1. Let F be the current frame.
+    // 2. Assert: due to validation, F.locals[x] exists.
+    use _ <- result.try(result.replace_error(dict.get(state.configuration.thread.framestate.locals, index), "gwr/execution/machine.local_set: couldn't get the local with index " <> int.to_string(index)))
+    
+    // 3. Assert: due to validation, a value is on the top of the stack.
+    // 4. Pop the value val from the stack.
+    use #(stack, value) <- result.try(stack.pop_as(from: state.stack, with: stack.to_value))
+
+    // 5. Replace F.locals[x] with the value val.
+    Ok(
+        MachineState
+        (
+            configuration: Configuration
+            (
+                ..state.configuration,
+                thread: Thread
+                (
+                    ..state.configuration.thread,
+                    framestate: stack.FrameState
+                    (
+                        ..state.configuration.thread.framestate,
+                        locals: dict.insert(into: state.configuration.thread.framestate.locals, for: index, insert: value)
+                    )
+                )
+            ), stack: stack
+        )
+    )
 }
