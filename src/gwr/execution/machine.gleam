@@ -88,7 +88,7 @@ pub fn initialize(from module: module.Module) -> Result(Machine, String)
 
     let state = MachineState
     (
-        store: store,
+        store: update_references(from: store, with: module_instance),
         stack: stack.create()
     )
 
