@@ -329,15 +329,15 @@ pub fn br(state: MachineState, index: index.LabelIndex)
     // 1. Assert: due to validation, the stack contains at least l+1 labels.
     let all_labels = stack.pop_all(from: state.stack).1 |> list.filter(stack.is_label)
     let count_of_labels_in_stack = all_labels |> list.length
-    use <- bool.guard(when: count_of_labels_in_stack < index + 1, return: Error("gwr/execution/machine.branch: expected the stack to contains at least " <> int.to_string(index + 1) <> " labels but got " <> int.to_string(count_of_labels_in_stack)))
+    use <- bool.guard(when: count_of_labels_in_stack < index + 1, return: Error("gwr/execution/machine.br: expected the stack to contains at least " <> int.to_string(index + 1) <> " labels but got " <> int.to_string(count_of_labels_in_stack)))
     // 2. Let L be the l-th label appearing on the stack, starting from the top and counting from zero.
     // 3. Let n be the arity of L.
-    use label_entry <- result.try(result.replace_error(all_labels |> list.take(up_to: index + 1) |> list.last, "gwr/execution/machine.branch: couldn't find the label with index " <> int.to_string(index)))
+    use label_entry <- result.try(result.replace_error(all_labels |> list.take(up_to: index + 1) |> list.last, "gwr/execution/machine.br: couldn't find the label with index " <> int.to_string(index)))
     use label <- result.try(stack.to_label(label_entry))
     let n = label.arity
     // 4. Assert: due to validation, there are at least n values on the top of the stack.
     let count_of_values_on_top = stack.pop_while(from: state.stack, with: stack.is_value).1 |> list.length
-    use <- bool.guard(when: count_of_values_on_top < n, return: Error("gwr/execution/machine.branch: expected the top of the stack to contains at least " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
+    use <- bool.guard(when: count_of_values_on_top < n, return: Error("gwr/execution/machine.br: expected the top of the stack to contains at least " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
     // 5. Pop the values {\mathit{val}}^n from the stack.
     let #(stack, values) = stack.pop_repeat(state.stack, n)
     
@@ -365,7 +365,7 @@ pub fn br(state: MachineState, index: index.LabelIndex)
                 case stack.pop(from: stack)
                 {
                     #(stack, option.Some(popped_label)) -> Ok(#(stack, popped_labels |> list.append([popped_label])))
-                    #(_, anything_else) -> Error("gwr/execution/machine.branch: expected the top of the stack to contain a label but got " <> string.inspect(anything_else))
+                    #(_, anything_else) -> Error("gwr/execution/machine.br: expected the top of the stack to contain a label but got " <> string.inspect(anything_else))
                 }
             }
         )
@@ -412,7 +412,7 @@ pub fn loop(state: MachineState, block_type: instruction.BlockType, instructions
     let label = stack.Label(arity: m, continuation: [instruction.Loop(block_type: block_type, instructions: instructions)])
     // 5. Assert: due to validation, there are at least m values on the top of the stack.
     let count_of_values_on_top = stack.pop_while(from: state.stack, with: stack.is_value).1 |> list.length
-    use <- bool.guard(when: count_of_values_on_top < m, return: Error("gwr/execution/machine.execute: (Loop) expected the top of the stack to contains at least " <> int.to_string(m) <> " values but got " <> int.to_string(count_of_values_on_top)))
+    use <- bool.guard(when: count_of_values_on_top < m, return: Error("gwr/execution/machine.loop: expected the top of the stack to contains at least " <> int.to_string(m) <> " values but got " <> int.to_string(count_of_values_on_top)))
     // 6. Pop the values {\mathit{val}}^m from the stack.
     let #(stack, values) = stack.pop_repeat(from: state.stack, up_to: m)
     // 7. Enter the block {\mathit{val}}^m~{\mathit{instr}}^\ast with label L.
