@@ -1,5 +1,6 @@
 import gleam/dict
 import gleam/dynamic
+import gleam/int
 import gleam/order
 import gleam/result
 
@@ -225,4 +226,23 @@ pub fn builtin_float_to_ieee_float(value: FloatValue) -> Result(ieee_float.IEEEF
         Infinite(Negative) -> Ok(ieee_float.negative_infinity())
         NaN -> Ok(ieee_float.nan())
     }
+}
+
+pub fn address_to_int(address: Address) -> Int
+{
+    case address
+    {
+        FunctionAddress(addr) -> addr
+        TableAddress(addr) -> addr
+        MemoryAddress(addr) -> addr
+        GlobalAddress(addr) -> addr
+        ElementAddress(addr) -> addr
+        DataAddress(addr) -> addr
+        ExternAddress(addr) -> addr
+    }
+}
+
+pub fn address_to_string(address: Address) -> String
+{
+    int.to_string(address_to_int(address))
 }

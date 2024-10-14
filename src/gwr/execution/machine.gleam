@@ -76,7 +76,7 @@ pub fn initialize(from module: module.Module) -> Result(Machine, String)
         types: module.types,
         function_addresses: store.functions
                             |> dict.to_list
-                            |> list.map(fn (x) { #(address_to_int(x.0), x.0) })
+                            |> list.map(fn (x) { #(runtime.address_to_int(x.0), x.0) })
                             |> dict.from_list,
         table_addresses: [],
         memory_addresses: list.index_map(store.memories, fn (_, index) { runtime.MemoryAddress(index) }),
@@ -244,7 +244,7 @@ pub fn invoke(state: MachineState, address: runtime.Address) -> Result(MachineSt
 {
     // 1. Assert: due to validation, S.{\mathsf{funcs}}[a] exists.
     // 2. Let f be the function instance, S.{\mathsf{funcs}}[a].
-    use function_instance <- result.try(result.replace_error(dict.get(state.store.functions, address), "gwr/execution/machine.invoke: couldn't find the function instance with address " <> address_to_string(address)))
+    use function_instance <- result.try(result.replace_error(dict.get(state.store.functions, address), "gwr/execution/machine.invoke: couldn't find the function instance with address " <> runtime.address_to_string(address)))
     case function_instance
     {
         runtime.HostFunctionInstance(_, _) -> Error("@TODO: call host function")
@@ -449,25 +449,6 @@ pub fn execute_with_label(state: MachineState, label: runtime.Label, instruction
     let state = MachineState(..state, stack: stack.push(to: stack, push: values |> list.reverse))
     // 5. Jump to the position after the {\mathsf{end}} of the structured control instruction associated with the label L.
     Ok(state)
-}
-
-pub fn address_to_int(address: runtime.Address) -> Int
-{
-    case address
-    {
-        runtime.FunctionAddress(addr) -> addr
-        runtime.TableAddress(addr) -> addr
-        runtime.MemoryAddress(addr) -> addr
-        runtime.GlobalAddress(addr) -> addr
-        runtime.ElementAddress(addr) -> addr
-        runtime.DataAddress(addr) -> addr
-        runtime.ExternAddress(addr) -> addr
-    }
-}
-
-pub fn address_to_string(address: runtime.Address) -> String
-{
-    int.to_string(address_to_int(address))
 }
 
 pub fn expand_block_type(framestate: runtime.FrameState, block_type: instruction.BlockType) -> Result(types.FunctionType, String)
