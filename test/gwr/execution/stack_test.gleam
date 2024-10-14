@@ -104,7 +104,7 @@ pub fn pop_while_test()
 {
     let stack = stack.create()
     |> stack.push([stack.ValueEntry(runtime.Integer32(1))])
-    |> stack.push([stack.LabelEntry(stack.Label(arity: 0, continuation: []))])
+    |> stack.push([stack.LabelEntry(runtime.Label(arity: 0, continuation: []))])
     |> stack.push([stack.ValueEntry(runtime.Integer32(2))])
     |> stack.push([stack.ValueEntry(runtime.Integer32(3))])
 
@@ -117,5 +117,5 @@ pub fn pop_while_test()
 
     stack.peek(stack)
     |> should.be_some
-    |> should.equal(stack.LabelEntry(stack.Label(arity: 0, continuation: [])))
+    |> should.equal(stack.LabelEntry(runtime.Label(arity: 0, continuation: [])))
 }

@@ -1,11 +1,9 @@
-import gleam/dict.{type Dict}
 import gleam/iterator
 import gleam/list
 import gleam/option
 import gleam/result
 
 import gwr/execution/runtime
-import gwr/syntax/instruction
 
 /// https://webassembly.github.io/spec/core/exec/runtime.html#stack
 pub type Stack
@@ -17,33 +15,8 @@ pub type Stack
 pub type StackEntry
 {
     ValueEntry(runtime.Value)
-    LabelEntry(Label)
-    ActivationEntry(Frame)
-}
-
-/// Labels carry an argument arity <n> and their associated branch target, which is expressed
-/// syntactically as an instruction sequence:
-/// 
-/// https://webassembly.github.io/spec/core/exec/runtime.html#labels
-pub type Label
-{
-    Label(arity: Int, continuation: List(instruction.Instruction))
-}
-
-/// Activation frames carry the return arity <n> of the respective function, hold the values of
-/// its locals (including arguments) in the order corresponding to their static local indices, and
-/// a reference to the function’s own module instance:
-/// 
-/// https://webassembly.github.io/spec/core/exec/runtime.html#activation-frames
-pub type Frame
-{
-    Frame(arity: Int, framestate: FrameState)
-}
-
-/// https://webassembly.github.io/spec/core/exec/runtime.html#activation-frames
-pub type FrameState
-{
-    FrameState(locals: Dict(Int, runtime.Value), module_instance: runtime.ModuleInstance)
+    LabelEntry(runtime.Label)
+    ActivationEntry(runtime.Frame)
 }
 
 pub fn create() -> Stack
@@ -191,7 +164,7 @@ pub fn to_value(entry: StackEntry) -> Result(runtime.Value, String)
     }
 }
 
-pub fn to_label(entry: StackEntry) -> Result(Label, String)
+pub fn to_label(entry: StackEntry) -> Result(runtime.Label, String)
 {
     case entry
     {
@@ -200,7 +173,7 @@ pub fn to_label(entry: StackEntry) -> Result(Label, String)
     }
 }
 
-pub fn to_frame(entry: StackEntry) -> Result(Frame, String)
+pub fn to_frame(entry: StackEntry) -> Result(runtime.Frame, String)
 {
     case entry
     {
@@ -209,7 +182,7 @@ pub fn to_frame(entry: StackEntry) -> Result(Frame, String)
     }
 }
 
-pub fn get_current_frame(from stack: Stack) -> Result(Frame, Nil)
+pub fn get_current_frame(from stack: Stack) -> Result(runtime.Frame, Nil)
 {
     case pop_while(from: stack, with: fn (entry) { !is_activation_frame(entry) }).0 |> pop
     {
@@ -218,7 +191,7 @@ pub fn get_current_frame(from stack: Stack) -> Result(Frame, Nil)
     }
 }
 
-pub fn replace_current_frame(from stack: Stack, with new_frame: Frame) -> Result(Stack, Nil)
+pub fn replace_current_frame(from stack: Stack, with new_frame: runtime.Frame) -> Result(Stack, Nil)
 {
     let #(stack, upper_entries) = pop_while(from: stack, with: fn (entry) { !is_activation_frame(entry) })
     let #(stack, frame) = pop(stack)

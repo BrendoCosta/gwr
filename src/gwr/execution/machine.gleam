@@ -266,7 +266,7 @@ pub fn invoke(state: MachineState, address: runtime.Address) -> Result(MachineSt
                          |> result.values
                          |> list.reverse
             // 8. Let F be the frame \{ {\mathsf{module}}~f.{\mathsf{module}}, {\mathsf{locals}}~{\mathit{val}}^n~({\mathrm{default}}_t)^\ast \}.
-            let framestate = stack.FrameState
+            let framestate = runtime.FrameState
             (
                 locals: values
                         |> list.append(list.map(function_locals_types, get_default_value_for_type)) // function's arguments will be joined with function's locals
@@ -274,17 +274,17 @@ pub fn invoke(state: MachineState, address: runtime.Address) -> Result(MachineSt
                         |> dict.from_list,
                 module_instance: function_module_instance
             )
-            execute_with_frame(MachineState(..state, stack: stack), stack.Frame(arity: m, framestate: framestate), function_instructions)
+            execute_with_frame(MachineState(..state, stack: stack), runtime.Frame(arity: m, framestate: framestate), function_instructions)
         }
     }
 }
 
-pub fn execute_with_frame(state: MachineState, frame: stack.Frame, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
+pub fn execute_with_frame(state: MachineState, frame: runtime.Frame, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
 {
     // 9. Push the activation of F with arity m to the stack.
     let stack = stack.push(to: state.stack, push: [stack.ActivationEntry(frame)])
     // 10. Let L be the label whose arity is m and whose continuation is the end of the function.
-    let label = stack.Label(arity: frame.arity, continuation: [])
+    let label = runtime.Label(arity: frame.arity, continuation: [])
     // 11. Enter the instruction sequence {\mathit{instr}}^\ast with label L.
     use state <- result.try(execute_with_label(MachineState(..state, stack: stack), label, instructions, []))
 
@@ -395,7 +395,7 @@ pub fn loop(state: MachineState, block_type: instruction.BlockType, instructions
     let m = list.length(function_type.parameters)
     // let n = list.length(function_type.results)
     // 4. Let L be the label whose arity is m and whose continuation is the start of the loop.
-    let label = stack.Label(arity: m, continuation: [instruction.Loop(block_type: block_type, instructions: instructions)])
+    let label = runtime.Label(arity: m, continuation: [instruction.Loop(block_type: block_type, instructions: instructions)])
     // 5. Assert: due to validation, there are at least m values on the top of the stack.
     let count_of_values_on_top = stack.pop_while(from: state.stack, with: stack.is_value).1 |> list.length
     use <- bool.guard(when: count_of_values_on_top < m, return: Error("gwr/execution/machine.loop: expected the top of the stack to contains at least " <> int.to_string(m) <> " values but got " <> int.to_string(count_of_values_on_top)))
@@ -415,7 +415,7 @@ pub fn block(state: MachineState, block_type: instruction.BlockType, instruction
     let m = list.length(function_type.parameters)
     let n = list.length(function_type.results)
     // 4. Let L be the label whose arity is n and whose continuation is the end of the block.
-    let label = stack.Label(arity: n, continuation: [])
+    let label = runtime.Label(arity: n, continuation: [])
     // 5. Assert: due to validation, there are at least m values on the top of the stack.
     let count_of_values_on_top = stack.pop_while(from: state.stack, with: stack.is_value).1 |> list.length
     use <- bool.guard(when: count_of_values_on_top < m, return: Error("gwr/execution/machine.block: expected the top of the stack to contains at least " <> int.to_string(m) <> " values but got " <> int.to_string(count_of_values_on_top)))
@@ -425,7 +425,7 @@ pub fn block(state: MachineState, block_type: instruction.BlockType, instruction
     execute_with_label(MachineState(..state, stack: stack), label, instructions, values |> list.reverse)
 }
 
-pub fn execute_with_label(state: MachineState, label: stack.Label, instructions: List(instruction.Instruction), parameters: List(stack.StackEntry)) -> Result(MachineState, String)
+pub fn execute_with_label(state: MachineState, label: runtime.Label, instructions: List(instruction.Instruction), parameters: List(stack.StackEntry)) -> Result(MachineState, String)
 {
     // Entering {\mathit{instr}}^\ast with label L
     // 1. Push L to the stack.
@@ -470,7 +470,7 @@ pub fn address_to_string(address: runtime.Address) -> String
     int.to_string(address_to_int(address))
 }
 
-pub fn expand_block_type(framestate: stack.FrameState, block_type: instruction.BlockType) -> Result(types.FunctionType, String)
+pub fn expand_block_type(framestate: runtime.FrameState, block_type: instruction.BlockType) -> Result(types.FunctionType, String)
 {
     case block_type
     {
@@ -1003,10 +1003,10 @@ pub fn local_set(state: MachineState, index: index.LocalIndex) -> Result(Machine
         result.replace_error(
             stack.replace_current_frame(
                 from: stack,
-                with: stack.Frame
+                with: runtime.Frame
                 (
                     ..frame,
-                    framestate: stack.FrameState
+                    framestate: runtime.FrameState
                     (
                         ..frame.framestate,
                         locals: dict.insert(into: frame.framestate.locals, for: index, insert: value)

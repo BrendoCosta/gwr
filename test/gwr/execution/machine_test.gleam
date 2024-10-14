@@ -1108,10 +1108,10 @@ pub fn local_get_test()
                |> stack.push([
                     stack.ActivationEntry
                     (
-                        stack.Frame
+                        runtime.Frame
                         (
                             arity: 0,
-                            framestate: stack.FrameState
+                            framestate: runtime.FrameState
                             (
                                 locals: dict.from_list([
                                     #(0, runtime.Integer32(2)),
@@ -1141,10 +1141,10 @@ pub fn local_set_test()
                |> stack.push([
                     stack.ActivationEntry
                     (
-                        stack.Frame
+                        runtime.Frame
                         (
                             arity: 0,
-                            framestate: stack.FrameState
+                            framestate: runtime.FrameState
                             (
                                 locals: dict.from_list([
                                     #(0, runtime.Integer32(2)),

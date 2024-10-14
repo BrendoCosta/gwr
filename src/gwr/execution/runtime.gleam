@@ -4,6 +4,7 @@ import gleam/order
 import gleam/result
 
 import gwr/syntax/index
+import gwr/syntax/instruction
 import gwr/syntax/module
 import gwr/syntax/types
 import gwr/syntax/value
@@ -56,6 +57,31 @@ pub type ExecutionResult
 {
     Success(List(Value))
     Trap
+}
+
+/// Labels carry an argument arity <n> and their associated branch target, which is expressed
+/// syntactically as an instruction sequence:
+/// 
+/// https://webassembly.github.io/spec/core/exec/runtime.html#labels
+pub type Label
+{
+    Label(arity: Int, continuation: List(instruction.Instruction))
+}
+
+/// Activation frames carry the return arity <n> of the respective function, hold the values of
+/// its locals (including arguments) in the order corresponding to their static local indices, and
+/// a reference to the function’s own module instance:
+/// 
+/// https://webassembly.github.io/spec/core/exec/runtime.html#activation-frames
+pub type Frame
+{
+    Frame(arity: Int, framestate: FrameState)
+}
+
+/// https://webassembly.github.io/spec/core/exec/runtime.html#activation-frames
+pub type FrameState
+{
+    FrameState(locals: dict.Dict(Int, Value), module_instance: ModuleInstance)
 }
 
 /// https://webassembly.github.io/spec/core/exec/runtime.html#addresses
