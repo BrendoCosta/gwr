@@ -155,6 +155,7 @@ pub fn execute(state: MachineState, instructions: List(instruction.Instruction))
                     instruction.Loop(block_type:, instructions:) -> loop(current_state, block_type, instructions)
                     instruction.Br(index:) -> br(current_state, index)
                     instruction.BrIf(index:) -> br_if(current_state, index)
+                    instruction.Return -> return(current_state)
                     instruction.Call(index:) -> call(current_state, index)
 
                     instruction.I32Const(value) -> integer_const(current_state, types.Integer32, value)
@@ -205,7 +206,10 @@ pub fn execute(state: MachineState, instructions: List(instruction.Instruction))
                     
                     instruction.LocalGet(index) -> local_get(current_state, index)
                     instruction.LocalSet(index) -> local_set(current_state, index)
-                    instruction.I32Add -> i32_add(current_state)
+                    instruction.I32Add -> integer_add(current_state, types.Integer32)
+                    instruction.I64Add -> integer_add(current_state, types.Integer64)
+                    instruction.I32Sub -> integer_sub(current_state, types.Integer32)
+                    instruction.I64Sub -> integer_sub(current_state, types.Integer64)
                     unknown -> Error("gwr/execution/machine.execute: unknown instruction \"" <> string.inspect(unknown) <> "\"")
                 }
             }
@@ -227,6 +231,32 @@ fn get_default_value_for_type(type_: types.ValueType) -> runtime.Value
         types.Reference(types.FunctionReference) -> runtime.Reference(runtime.NullReference)
         types.Reference(types.ExternReference) -> runtime.Reference(runtime.NullReference)
     }
+}
+
+pub fn return(state: MachineState) -> Result(MachineState, String)
+{
+    // 1. Let F be the current frame.
+    use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.return: couldn't get the current frame"))
+    // 2. Let n be the arity of F.
+    let n = frame.arity
+    // 3. Assert: due to validation, there are at least n values on the top of the stack.
+    let count_of_values_on_top = stack.pop_while(from: state.stack, with: stack.is_value).1 |> list.length
+    use <- bool.guard(when: count_of_values_on_top < n, return: Error("gwr/execution/machine.return: expected the top of the stack to contains at least " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
+    // 4. Pop the results {\mathit{val}}^n from the stack.
+    let #(stack, results) = stack.pop_repeat(from: state.stack, up_to: n)
+    // 5. Assert: due to validation, the stack contains at least one frame.
+    use <- bool.guard(when: stack.get_entries(stack) |> list.filter(stack.is_activation_frame) |> list.length <= 0, return: Error("gwr/execution/machine.return: expected the stack to contains at least one frame"))
+    // 6. While the top of the stack is not a frame, do:
+    //     a. Pop the top element from the stack.
+    let #(stack, _) = stack.pop_while(from: stack, with: fn (entry) { !stack.is_activation_frame(entry) })
+    // 7. Assert: the top of the stack is the frame F.
+    use <- bool.guard(when: stack.peek(stack) != option.Some(stack.ActivationEntry(frame)), return: Error("gwr/execution/machine.return: expected the top of the stack to be the current frame"))
+    // 8. Pop the frame from the stack.
+    let #(stack, _) = stack.pop(from: stack)
+    // 9. Push {\mathit{val}}^n to the stack.
+    let stack = stack.push(to: stack, push: results |> list.reverse)
+    // 10. Jump to the instruction after the original call that pushed the frame.
+    Ok(MachineState(..state, stack: stack))
 }
 
 pub fn call(state: MachineState, index: index.FunctionIndex) -> Result(MachineState, String)
@@ -259,7 +289,7 @@ pub fn invoke(state: MachineState, address: runtime.Address) -> Result(MachineSt
             let function_instructions = function_code.body
             // 6. Assert: due to validation, n values are on the top of the stack.
             let count_of_values_on_top = stack.count_on_top(from: state.stack, with: stack.is_value)
-            use <- bool.guard(when: count_of_values_on_top != n, return: Error("gwr/execution/machine.invoke: expected the top of the stack to contains " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
+            use <- bool.guard(when: count_of_values_on_top < n, return: Error("gwr/execution/machine.invoke: expected the top of the stack to contains " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
             // 7. Pop the values {\mathit{val}}^n from the stack.
             let #(stack, values) = stack.pop_repeat(from: state.stack, up_to: n)
             let values = list.map(values, stack.to_value)
@@ -290,23 +320,36 @@ pub fn execute_with_frame(state: MachineState, frame: runtime.Frame, instruction
 
     // Returning from a function
 
-    // 1. Let F be the current frame.
-    use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.execute_with_frame: couldn't get the current frame"))
-    // 2. Let n be the arity of the activation of F.
-    let n = frame.arity
-    // 3. Assert: due to validation, there are n values on the top of the stack.
-    let count_of_values_on_top = stack.count_on_top(from: state.stack, with: stack.is_value)
-    use <- bool.guard(when: count_of_values_on_top != n, return: Error("gwr/execution/machine.execute_with_frame: expected the top of the stack to contains " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
-    // 4. Pop the results {\mathit{val}}^n from the stack.
-    let #(stack, values) = stack.pop_repeat(from: state.stack, up_to: n)
-    // 5. Assert: due to validation, the frame F is now on the top of the stack.
-    use <- bool.guard(when: stack.peek(stack) != option.Some(stack.ActivationEntry(frame)), return: Error("gwr/execution/machine.execute_with_frame: expected the current frame to be on the top of the stack"))
-    // 6. Pop the frame F from the stack.
-    let #(stack, _) = stack.pop(from: stack)
-    // 7. Push {\mathit{val}}^n back to the stack.
-    let stack = stack.push(to: stack, push: values |> list.reverse)
-    // 8. Jump to the instruction after the original call.
-    Ok(MachineState(..state, stack: stack))
+    case stack.peek(from: state.stack)
+    {
+        option.Some(stack.ValueEntry(value)) ->
+        {
+            // @NOTE: this block handles returns by jumps (i.e., return)
+            let #(stack, _) = stack.pop(from: state.stack)
+            let stack = stack.push(to: stack, push: [stack.ValueEntry(value)])
+            Ok(MachineState(..state, stack: stack))
+        }
+        _ ->
+        {
+            // 1. Let F be the current frame.
+            use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.execute_with_frame: couldn't get the current frame"))
+            // 2. Let n be the arity of the activation of F.
+            let n = frame.arity
+            // 3. Assert: due to validation, there are n values on the top of the stack.
+            let count_of_values_on_top = stack.count_on_top(from: state.stack, with: stack.is_value)
+            use <- bool.guard(when: count_of_values_on_top != n, return: Error("gwr/execution/machine.execute_with_frame: expected the top of the stack to contains " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
+            // 4. Pop the results {\mathit{val}}^n from the stack.
+            let #(stack, values) = stack.pop_repeat(from: state.stack, up_to: n)
+            // 5. Assert: due to validation, the frame F is now on the top of the stack.
+            use <- bool.guard(when: stack.peek(stack) != option.Some(stack.ActivationEntry(frame)), return: Error("gwr/execution/machine.execute_with_frame: expected the current frame to be on the top of the stack"))
+            // 6. Pop the frame F from the stack.
+            let #(stack, _) = stack.pop(from: stack)
+            // 7. Push {\mathit{val}}^n back to the stack.
+            let stack = stack.push(to: stack, push: values |> list.reverse)
+            // 8. Jump to the instruction after the original call.
+            Ok(MachineState(..state, stack: stack))
+        }
+    }
 }
 
 pub fn br(state: MachineState, index: index.LabelIndex)
@@ -325,23 +368,15 @@ pub fn br(state: MachineState, index: index.LabelIndex)
     use <- bool.guard(when: count_of_values_on_top < n, return: Error("gwr/execution/machine.br: expected the top of the stack to contains at least " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top)))
     // 5. Pop the values {\mathit{val}}^n from the stack.
     let #(stack, values) = stack.pop_repeat(state.stack, n)
-    
-    // @NOTE: while the procedure described in the specification for
-    // "exiting an instruction sequence with a label" simply discards
-    // the previous labels, here we are going to collect and put them
-    // right below the continuation values in the stack. That way they
-    // won't interfere with the execution at all, plus the execute_with_label
-    // function will not throw us an error complaining about missing
-    // labels.
 
     // 6. Repeat l+1 times:
-    use #(stack, popped_labels) <- result.try(
+    use stack <- result.try(
         iterator.fold(
-            from: Ok(#(stack, [])),
+            from: Ok(stack),
             over: iterator.range(1, index + 1),
             with: fn (accumulator, _)
             {
-                use #(stack, popped_labels) <- result.try(accumulator)
+                use stack <- result.try(accumulator)
                 // a. While the top of the stack is a value, do:
                 //     i. Pop the value from the stack.
                 let #(stack, _) = stack.pop_while(from: stack, with: stack.is_value)
@@ -349,7 +384,7 @@ pub fn br(state: MachineState, index: index.LabelIndex)
                 // c. Pop the label from the stack.
                 case stack.pop(from: stack)
                 {
-                    #(stack, option.Some(popped_label)) -> Ok(#(stack, popped_labels |> list.append([popped_label])))
+                    #(stack, option.Some(stack.LabelEntry(_))) -> Ok(stack)
                     #(_, anything_else) -> Error("gwr/execution/machine.br: expected the top of the stack to contain a label but got " <> string.inspect(anything_else))
                 }
             }
@@ -357,7 +392,7 @@ pub fn br(state: MachineState, index: index.LabelIndex)
     )
 
     // 7. Push the values {\mathit{val}}^n to the stack.
-    let stack = stack.push(to: stack, push: popped_labels |> list.append(values) |> list.reverse)
+    let stack = stack.push(to: stack, push: [stack.Jump(values |> list.reverse)])
     // 8. Jump to the continuation of L.
     execute(MachineState(..state, stack: stack), label.continuation)
 }
@@ -434,21 +469,40 @@ pub fn execute_with_label(state: MachineState, label: runtime.Label, instruction
     use state <- result.try(execute(state, instructions))
     
     // Exiting {\mathit{instr}}^\ast with label L
-    // 1. Pop all values {\mathit{val}}^\ast from the top of the stack.
-    let #(stack, values) = stack.pop_while(from: state.stack, with: stack.is_value)
-    // 2. Assert: due to validation, the label L is now on the top of the stack.
-    // 3. Pop the label from the stack.
-    use stack <- result.try(
-        case stack.pop(stack)
+
+    case stack.peek(state.stack)
+    {
+        option.Some(stack.ValueEntry(_)) ->
         {
-            #(stack, option.Some(stack.LabelEntry(some_label))) if some_label == label -> Ok(stack)
-            #(_, anything_else) -> Error("gwr/execution/machine.execute_with_label: expected the label " <> string.inspect(label) <> " pushed to the stack before execution but got " <> string.inspect(anything_else))
+            // @NOTE: this block handles exits by jumps (i.e., return)
+            Ok(state)
         }
-    )
-    // 4. Push {\mathit{val}}^\ast back to the stack.
-    let state = MachineState(..state, stack: stack.push(to: stack, push: values |> list.reverse))
-    // 5. Jump to the position after the {\mathsf{end}} of the structured control instruction associated with the label L.
-    Ok(state)
+        option.Some(stack.Jump(values)) ->
+        {
+            // @NOTE: this block handles jumps by br / br_if instructions
+            Ok(MachineState(..state, stack: stack.push(to: state.stack, push: values)))
+        }
+        _ ->
+        {
+            // 1. Pop all values {\mathit{val}}^\ast from the top of the stack.
+            let #(stack, values) = stack.pop_while(from: state.stack, with: stack.is_value)
+            // 2. Assert: due to validation, the label L is now on the top of the stack.
+            // 3. Pop the label from the stack.
+
+            use stack <- result.try(
+                case stack.pop(stack)
+                {
+                    #(stack, option.Some(stack.LabelEntry(some_label))) if some_label == label -> Ok(stack)
+                    #(_, anything_else) -> Error("gwr/execution/machine.execute_with_label: expected the label " <> string.inspect(label) <> " pushed to the stack before execution but got " <> string.inspect(anything_else))
+                }
+            )
+
+            // 4. Push {\mathit{val}}^\ast back to the stack.
+            let state = MachineState(..state, stack: stack.push(to: stack, push: values |> list.reverse))
+            // 5. Jump to the position after the {\mathsf{end}} of the structured control instruction associated with the label L.
+            Ok(state)
+        }   
+    }
 }
 
 pub fn expand_block_type(framestate: runtime.FrameState, block_type: instruction.BlockType) -> Result(types.FunctionType, String)
@@ -482,7 +536,13 @@ pub fn binary_operation(state: MachineState, type_: types.NumberType, operation_
               types.Integer32, IntegerBinaryOperation(handler), [stack.ValueEntry(runtime.Integer32(value: b)), stack.ValueEntry(runtime.Integer32(value: a))] 
             | types.Integer64, IntegerBinaryOperation(handler), [stack.ValueEntry(runtime.Integer64(value: b)), stack.ValueEntry(runtime.Integer64(value: a))] ->
             {
-                handler(a, b)
+                use result <- result.try(handler(a, b))
+                // Do operations with 64 bit, demote it to 32 bit if necessary
+                case type_, result
+                {
+                    types.Integer32, runtime.Integer64(v) -> Ok(runtime.Integer32(v))
+                    _, _ -> Ok(result)
+                }
             }
               types.Float32, FloatBinaryOperation(handler), [stack.ValueEntry(runtime.Float32(value: b)), stack.ValueEntry(runtime.Float32(value: a))]
             | types.Float64, FloatBinaryOperation(handler), [stack.ValueEntry(runtime.Float64(value: b)), stack.ValueEntry(runtime.Float64(value: a))] ->
@@ -941,19 +1001,30 @@ pub fn integer_popcnt(state: MachineState, type_: types.NumberType) -> Result(Ma
     }))
 }
 
-pub fn i32_add(state: MachineState) -> Result(MachineState, String)
+/// Return the result of adding i_1 and i_2 modulo 2^N.
+/// 
+/// \begin{array}{@{}lcll}{\mathrm{iadd}}_N(i_1, i_2) &=& (i_1 + i_2) \mathbin{\mathrm{mod}} 2^N\end{array}
+/// 
+/// https://webassembly.github.io/spec/core/exec/numerics.html#xref-exec-numerics-op-iadd-mathrm-iadd-n-i-1-i-2
+pub fn integer_add(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
 {
-    let #(stack, values) = stack.pop_repeat(state.stack, 2)
-    use result <- result.try(
-        case values
-        {
-            [stack.ValueEntry(runtime.Integer32(value: a)), stack.ValueEntry(runtime.Integer32(value: b))] -> Ok(a + b)
-            anything_else -> Error("gwr/execution/machine.i32_add: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
-        }
-    )
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) {
+        let m = int.absolute_value(2 * int.bitwise_shift_left(1, get_bitwidth(type_) - 1))
+        Ok(runtime.Integer64({ a + b } % m))
+    }))
+}
 
-    let stack = stack.push(stack, [stack.ValueEntry(runtime.Integer32(result))])
-    Ok(MachineState(..state, stack: stack))
+/// Return the result of subtracting i_2 from i_1 modulo 2^N.
+/// 
+/// \begin{array}{@{}lcll}{\mathrm{isub}}_N(i_1, i_2) &=& (i_1 - i_2 + 2^N) \mathbin{\mathrm{mod}} 2^N\end{array}
+/// 
+/// https://webassembly.github.io/spec/core/exec/numerics.html#xref-exec-numerics-op-isub-mathrm-isub-n-i-1-i-2
+pub fn integer_sub(state: MachineState, type_: types.NumberType) -> Result(MachineState, String)
+{
+    binary_operation(state, type_, IntegerBinaryOperation(fn (a, b) {
+        let m = int.absolute_value(2 * int.bitwise_shift_left(1, get_bitwidth(type_) - 1))
+        Ok(runtime.Integer64({ a - b + m } % m))
+    }))
 }
 
 pub fn local_get(state: MachineState, index: index.LocalIndex) -> Result(MachineState, String)

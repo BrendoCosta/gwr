@@ -17,6 +17,10 @@ pub type StackEntry
     ValueEntry(runtime.Value)
     LabelEntry(runtime.Label)
     ActivationEntry(runtime.Frame)
+    // @NOTE: the "Jump" entry is not part of the spec and
+    // is intended for signaling down stack that a jump has
+    // occurred.
+    Jump(List(StackEntry))
 }
 
 pub fn create() -> Stack
@@ -201,3 +205,24 @@ pub fn replace_current_frame(from stack: Stack, with new_frame: runtime.Frame) -
         _ -> Error(Nil)
     }
 }
+
+pub fn get_entries(from stack: Stack) -> List(StackEntry)
+{
+    stack.entries
+}
+
+//pub fn signal_jump(from stack: Stack) -> Stack
+//{
+//    // Pop all entries until reach the current frame
+//    let #(stack, popped_entries) = pop_while(from: stack, with: fn (entry) { !is_activation_frame(entry) })
+//    // Replace all labels with Jump
+//    let popped_entries = popped_entries |> list.map(fn (entry) {
+//        case entry
+//        {
+//            LabelEntry(_) -> Jump
+//            _ -> entry
+//        }
+//    })
+//    // Push the entries back and return it
+//    push(to: stack, push: popped_entries |> list.reverse)
+//}

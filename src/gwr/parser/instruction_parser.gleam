@@ -78,6 +78,7 @@ pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_r
                 use #(reader, label_index) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
                 Ok(#(reader, instruction.BrIf(index: label_index)))
             }
+            0xf -> Ok(#(reader, instruction.Return))
             0x10 ->
             {
                 use #(reader, function_index) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))

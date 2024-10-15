@@ -1086,17 +1086,51 @@ pub fn integer_popcnt_test()
     )
 }
 
-pub fn i32_add_test()
+pub fn integer_add_test()
 {
-    let state = create_empty_state()
-    let stack = stack.push(to: state.stack, push: [stack.ValueEntry(runtime.Integer32(4))])
-                |> stack.push([stack.ValueEntry(runtime.Integer32(6))])
-    let state = machine.MachineState(..state, stack: stack)
-    let state = machine.i32_add(state) |> should.be_ok
-    
-    stack.peek(state.stack)
-    |> should.be_some
-    |> should.equal(stack.ValueEntry(runtime.Integer32(10)))
+    [
+        #(
+            types.Integer32,
+            [
+                #([runtime.Integer32(0),     runtime.Integer32(-10)], runtime.Integer32(-10)),
+                #([runtime.Integer32(-10),   runtime.Integer32(0)],   runtime.Integer32(-10)),
+                #([runtime.Integer32(0),     runtime.Integer32(0)],   runtime.Integer32(0)),
+                #([runtime.Integer32(1),     runtime.Integer32(1)],   runtime.Integer32(2)),
+                #([runtime.Integer32(2),     runtime.Integer32(2)],   runtime.Integer32(4)),
+                #([runtime.Integer32(2),     runtime.Integer32(3)],   runtime.Integer32(5)),
+                #([runtime.Integer32(5),     runtime.Integer32(2)],   runtime.Integer32(7)),
+                #([runtime.Integer32(65536), runtime.Integer32(-1)],  runtime.Integer32(65535)),
+            ]
+        ),
+        #(
+            types.Integer64,
+            [
+                #([runtime.Integer64(0),     runtime.Integer64(-10)], runtime.Integer64(-10)),
+                #([runtime.Integer64(-10),   runtime.Integer64(0)],   runtime.Integer64(-10)),
+                #([runtime.Integer64(0),     runtime.Integer64(0)],   runtime.Integer64(0)),
+                #([runtime.Integer64(1),     runtime.Integer64(1)],   runtime.Integer64(2)),
+                #([runtime.Integer64(2),     runtime.Integer64(2)],   runtime.Integer64(4)),
+                #([runtime.Integer64(2),     runtime.Integer64(3)],   runtime.Integer64(5)),
+                #([runtime.Integer64(5),     runtime.Integer64(2)],   runtime.Integer64(7)),
+                #([runtime.Integer64(65536), runtime.Integer64(-1)],  runtime.Integer64(65535)),
+            ]
+        ),
+    ]
+    |> list.each(
+        fn (integer_type)
+        {
+            list.each(integer_type.1, fn (test_case) {
+                let state = create_empty_state()
+                let stack = stack.push(to: state.stack, push: list.map(test_case.0, fn (x) { stack.ValueEntry(x) }))
+                let state = machine.MachineState(..state, stack: stack)
+                let state = machine.integer_add(state, integer_type.0) |> should.be_ok
+
+                stack.peek(state.stack)
+                |> should.be_some
+                |> should.equal(stack.ValueEntry(test_case.1))
+            })
+        }
+    )
 }
 
 pub fn local_get_test()

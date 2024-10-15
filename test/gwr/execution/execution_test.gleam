@@ -57,3 +57,19 @@ pub fn call_test()
     let #(_, result) = gwr.call(instance, "call_test", [runtime.Integer32(5), runtime.Integer32(2)]) |> should.be_ok
     result |> should.equal([runtime.Integer32(7)])
 }
+
+pub fn recursion_test()
+{
+    let module_data = simplifile.read_bits(from: "./test/assets/control/recursion.wasm") |> should.be_ok
+    let instance = gwr.create(from: module_data) |> should.be_ok
+    let #(_, result) = gwr.call(instance, "recursion_test", [runtime.Integer32(3), runtime.Integer32(0)]) |> should.be_ok
+    result |> should.equal([runtime.Integer32(6)])
+}
+
+pub fn fibonacci_test()
+{
+    let module_data = simplifile.read_bits(from: "./test/assets/control/fibonacci.wasm") |> should.be_ok
+    let instance = gwr.create(from: module_data) |> should.be_ok
+    let #(_, result) = gwr.call(instance, "fibonacci", [runtime.Integer32(12)]) |> should.be_ok
+    result |> should.equal([runtime.Integer32(144)])
+}
