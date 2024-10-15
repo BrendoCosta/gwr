@@ -229,7 +229,13 @@ pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte
                                                     {
                                                         let function = module.Function(
                                                             type_: function_type_index,
-                                                            locals: list.map(entry.function_code.locals, fn (lc) { lc.type_ }),
+                                                            locals: list.map(
+                                                                entry.function_code.locals,
+                                                                fn (locals_declaration)
+                                                                {
+                                                                    list.repeat(locals_declaration.type_, locals_declaration.count)
+                                                                }
+                                                            ) |> list.flatten,
                                                             body: entry.function_code.body
                                                         )
                                                         Ok(list.append(function_list, [function]))
