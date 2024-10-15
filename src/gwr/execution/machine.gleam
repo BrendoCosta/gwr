@@ -25,7 +25,7 @@ pub type Machine
 
 pub type MachineState
 {
-    MachineState(store: store.Store, stack: stack.Stack) //runtime.ModuleInstance
+    MachineState(store: store.Store, stack: stack.Stack)
 }
 
 pub fn initialize(from module: module.Module) -> Result(Machine, String)

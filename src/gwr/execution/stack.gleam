@@ -210,19 +210,3 @@ pub fn get_entries(from stack: Stack) -> List(StackEntry)
 {
     stack.entries
 }
-
-//pub fn signal_jump(from stack: Stack) -> Stack
-//{
-//    // Pop all entries until reach the current frame
-//    let #(stack, popped_entries) = pop_while(from: stack, with: fn (entry) { !is_activation_frame(entry) })
-//    // Replace all labels with Jump
-//    let popped_entries = popped_entries |> list.map(fn (entry) {
-//        case entry
-//        {
-//            LabelEntry(_) -> Jump
-//            _ -> entry
-//        }
-//    })
-//    // Push the entries back and return it
-//    push(to: stack, push: popped_entries |> list.reverse)
-//}
