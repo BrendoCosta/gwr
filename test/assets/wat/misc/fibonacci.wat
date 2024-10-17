@@ -1,4 +1,4 @@
-;; wat2wasm ./test/assets/control/fibonacci.wat -o ./test/assets/control/fibonacci.wasm
+;; wat2wasm ./test/assets/wat/misc/fibonacci.wat -o ./test/assets/wat/misc/fibonacci.wasm
 (module
     (func $fibonacci (export "fibonacci") (param $value i32) (result i32)
         (if (result i32)

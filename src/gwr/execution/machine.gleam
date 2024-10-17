@@ -28,6 +28,12 @@ pub type MachineState
     MachineState(store: store.Store, stack: stack.Stack)
 }
 
+pub type Jump
+{
+    Branch(target: List(instruction.Instruction))
+    Return
+}
+
 pub fn initialize(from module: module.Module) -> Result(Machine, String)
 {
 
@@ -112,113 +118,6 @@ pub fn update_references(from store: store.Store, with new_module_instance: runt
     store.Store(..store, functions: updated_functions)
 }
 
-pub fn execute(state: MachineState, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
-{
-    use state <- result.try(
-        list.fold(
-            from: Ok(state),
-            over: instructions,
-            with: fn (current_state, instruction)
-            {
-                use current_state <- result.try(current_state)
-                case instruction
-                {
-                    instruction.End -> Ok(current_state)
-                    instruction.Block(block_type:, instructions:) -> block(current_state, block_type, instructions)
-                    instruction.If(block_type:, instructions: if_instructions, else_: else_) ->
-                    {
-                        // 1. Assert: due to validation, a value of value type {\mathsf{i32}} is on the top of the stack.
-                        // 2. Pop the value {\mathsf{i32}}.{\mathsf{const}}~c from the stack.
-                        case stack.pop_as(from: current_state.stack, with: stack.to_value)
-                        {
-                            Ok(#(stack, runtime.Integer32(c))) ->
-                            {
-                                let state = MachineState(..current_state, stack: stack)
-                                case c != 0
-                                {
-                                    // 3. If c is non-zero, then:
-                                    //     a. Execute the block instruction {\mathsf{block}}~{\mathit{blocktype}}~{\mathit{instr}}_1^\ast~{\mathsf{end}}.
-                                    True -> block(state, block_type, if_instructions)
-                                    // 4. Else:
-                                    //     a. Execute the block instruction {\mathsf{block}}~{\mathit{blocktype}}~{\mathit{instr}}_2^\ast~{\mathsf{end}}.
-                                    False -> case else_
-                                    {
-                                        option.Some(instruction.Else(else_instructions)) -> block(state, block_type, else_instructions)
-                                        option.None -> Ok(state)
-                                        anything_else -> Error("gwr/execution/machine.execute: (If/Else) illegal instruction in the Else's field " <> string.inspect(anything_else))
-                                    }
-                                }
-                            }
-                            anything_else -> Error("gwr/execution/machine.execute: (If/Else) expected the If's continuation flag but got " <> string.inspect(anything_else))
-                        }
-                    }
-                    instruction.Loop(block_type:, instructions:) -> loop(current_state, block_type, instructions)
-                    instruction.Br(index:) -> br(current_state, index)
-                    instruction.BrIf(index:) -> br_if(current_state, index)
-                    instruction.Return -> return(current_state)
-                    instruction.Call(index:) -> call(current_state, index)
-
-                    instruction.I32Const(value) -> integer_const(current_state, types.Integer32, value)
-                    instruction.I64Const(value) -> integer_const(current_state, types.Integer64, value)
-                    instruction.F32Const(value) -> float_const(current_state, types.Float32, value)
-                    instruction.F64Const(value) -> float_const(current_state, types.Float64, value)
-                    instruction.I32Eqz -> integer_eqz(current_state, types.Integer32)
-                    instruction.I32Eq  -> integer_eq(current_state, types.Integer32)
-                    instruction.I32Ne  -> integer_ne(current_state, types.Integer32)
-                    instruction.I32LtS -> integer_lt_s(current_state, types.Integer32)
-                    instruction.I32LtU -> integer_lt_u(current_state, types.Integer32)
-                    instruction.I32GtS -> integer_gt_s(current_state, types.Integer32)
-                    instruction.I32GtU -> integer_gt_u(current_state, types.Integer32)
-                    instruction.I32LeS -> integer_le_s(current_state, types.Integer32)
-                    instruction.I32LeU -> integer_le_u(current_state, types.Integer32)
-                    instruction.I32GeS -> integer_ge_s(current_state, types.Integer32)
-                    instruction.I32GeU -> integer_ge_u(current_state, types.Integer32)
-                    instruction.I64Eqz -> integer_eqz(current_state, types.Integer64)
-                    instruction.I64Eq  -> integer_eq(current_state, types.Integer64)
-                    instruction.I64Ne  -> integer_ne(current_state, types.Integer64)
-                    instruction.I64LtS -> integer_lt_s(current_state, types.Integer64)
-                    instruction.I64LtU -> integer_lt_u(current_state, types.Integer64)
-                    instruction.I64GtS -> integer_gt_s(current_state, types.Integer64)
-                    instruction.I64GtU -> integer_gt_u(current_state, types.Integer64)
-                    instruction.I64LeS -> integer_le_s(current_state, types.Integer64)
-                    instruction.I64LeU -> integer_le_u(current_state, types.Integer64)
-                    instruction.I64GeS -> integer_ge_s(current_state, types.Integer64)
-                    instruction.I64GeU -> integer_ge_u(current_state, types.Integer64)
-                    instruction.F32Eq  -> float_eq(current_state, types.Float32)
-                    instruction.F32Ne  -> float_ne(current_state, types.Float32)
-                    instruction.F32Lt  -> float_lt(current_state, types.Float32)
-                    instruction.F32Gt  -> float_gt(current_state, types.Float32)
-                    instruction.F32Le  -> float_le(current_state, types.Float32)
-                    instruction.F32Ge  -> float_ge(current_state, types.Float32)
-                    instruction.F64Eq  -> float_eq(current_state, types.Float64)
-                    instruction.F64Ne  -> float_ne(current_state, types.Float64)
-                    instruction.F64Lt  -> float_lt(current_state, types.Float64)
-                    instruction.F64Gt  -> float_gt(current_state, types.Float64)
-                    instruction.F64Le  -> float_le(current_state, types.Float64)
-                    instruction.F64Ge  -> float_ge(current_state, types.Float64)
-
-                    instruction.I32Clz -> integer_clz(current_state, types.Integer32)
-                    instruction.I64Clz -> integer_clz(current_state, types.Integer64)
-                    instruction.I32Ctz -> integer_ctz(current_state, types.Integer32)
-                    instruction.I64Ctz -> integer_ctz(current_state, types.Integer64)
-                    instruction.I32Popcnt -> integer_popcnt(current_state, types.Integer32)
-                    instruction.I64Popcnt -> integer_popcnt(current_state, types.Integer64)
-                    
-                    instruction.LocalGet(index) -> local_get(current_state, index)
-                    instruction.LocalSet(index) -> local_set(current_state, index)
-                    instruction.I32Add -> integer_add(current_state, types.Integer32)
-                    instruction.I64Add -> integer_add(current_state, types.Integer64)
-                    instruction.I32Sub -> integer_sub(current_state, types.Integer32)
-                    instruction.I64Sub -> integer_sub(current_state, types.Integer64)
-                    unknown -> Error("gwr/execution/machine.execute: unknown instruction \"" <> string.inspect(unknown) <> "\"")
-                }
-            }
-        )
-    )
-
-    Ok(state)
-}
-
 fn get_default_value_for_type(type_: types.ValueType) -> runtime.Value
 {
     case type_
@@ -233,7 +132,7 @@ fn get_default_value_for_type(type_: types.ValueType) -> runtime.Value
     }
 }
 
-pub fn return(state: MachineState) -> Result(MachineState, String)
+pub fn return(state: MachineState) -> Result(#(MachineState, option.Option(Jump)), String)
 {
     // 1. Let F be the current frame.
     use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.return: couldn't get the current frame"))
@@ -256,7 +155,7 @@ pub fn return(state: MachineState) -> Result(MachineState, String)
     // 9. Push {\mathit{val}}^n to the stack.
     let stack = stack.push(to: stack, push: results |> list.reverse)
     // 10. Jump to the instruction after the original call that pushed the frame.
-    Ok(MachineState(..state, stack: stack))
+    Ok(#(MachineState(..state, stack: stack), option.Some(Return)))
 }
 
 pub fn call(state: MachineState, index: index.FunctionIndex) -> Result(MachineState, String)
@@ -309,6 +208,19 @@ pub fn invoke(state: MachineState, address: runtime.Address) -> Result(MachineSt
     }
 }
 
+pub fn unwind_stack(state: MachineState) -> Result(MachineState, String)
+{
+    case stack.get_current_label(from: state.stack)
+    {
+        Ok(label) ->
+        {
+            use state <- result.try(exit_with_label(state, label))
+            unwind_stack(state)
+        }
+        Error(_) -> Ok(state)
+    }
+}
+
 pub fn execute_with_frame(state: MachineState, frame: runtime.Frame, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
 {
     // 9. Push the activation of F with arity m to the stack.
@@ -316,21 +228,14 @@ pub fn execute_with_frame(state: MachineState, frame: runtime.Frame, instruction
     // 10. Let L be the label whose arity is m and whose continuation is the end of the function.
     let label = runtime.Label(arity: frame.arity, continuation: [])
     // 11. Enter the instruction sequence {\mathit{instr}}^\ast with label L.
-    use state <- result.try(execute_with_label(MachineState(..state, stack: stack), label, instructions, []))
-
+    use #(state, jump) <- result.try(enter_with_label(MachineState(..state, stack: stack), label, instructions, []))
     // Returning from a function
-
-    case stack.peek(from: state.stack)
+    case jump
     {
-        option.Some(stack.ValueEntry(value)) ->
-        {
-            // @NOTE: this block handles returns by jumps (i.e., return)
-            let #(stack, _) = stack.pop(from: state.stack)
-            let stack = stack.push(to: stack, push: [stack.ValueEntry(value)])
-            Ok(MachineState(..state, stack: stack))
-        }
+        option.Some(Return) -> Ok(state)
         _ ->
         {
+            use state <- result.try(unwind_stack(state))
             // 1. Let F be the current frame.
             use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.execute_with_frame: couldn't get the current frame"))
             // 2. Let n be the arity of the activation of F.
@@ -352,7 +257,7 @@ pub fn execute_with_frame(state: MachineState, frame: runtime.Frame, instruction
     }
 }
 
-pub fn br(state: MachineState, index: index.LabelIndex)
+pub fn br(state: MachineState, index: index.LabelIndex) -> Result(#(MachineState, option.Option(Jump)), String)
 {
     // 1. Assert: due to validation, the stack contains at least l+1 labels.
     let all_labels = stack.pop_all(from: state.stack).1 |> list.filter(stack.is_label)
@@ -392,12 +297,12 @@ pub fn br(state: MachineState, index: index.LabelIndex)
     )
 
     // 7. Push the values {\mathit{val}}^n to the stack.
-    let stack = stack.push(to: stack, push: [stack.Jump(values |> list.reverse)])
+    let stack = stack.push(to: stack, push: values |> list.reverse)
     // 8. Jump to the continuation of L.
-    execute(MachineState(..state, stack: stack), label.continuation)
+    Ok(#(MachineState(..state, stack: stack), option.Some(Branch(target: label.continuation))))
 }
 
-pub fn br_if(state: MachineState, index: index.LabelIndex)
+pub fn br_if(state: MachineState, index: index.LabelIndex) -> Result(#(MachineState, option.Option(Jump)), String)
 {
     // 1. Assert: due to validation, a value of value type {\mathsf{i32}} is on the top of the stack.
     // 2. Pop the value {\mathsf{i32}}.{\mathsf{const}}~c from the stack.
@@ -413,14 +318,14 @@ pub fn br_if(state: MachineState, index: index.LabelIndex)
                 True -> br(state, index)
                 // 4. Else:
                 //     b. Do nothing.
-                False -> Ok(state)
+                False -> Ok(#(state, option.None))
             }
         }
         _ -> Error("gwr/execution/machine.br_if: expected the top of the stack to contain an i32 value")
     }
 }
 
-pub fn loop(state: MachineState, block_type: instruction.BlockType, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
+pub fn loop(state: MachineState, block_type: instruction.BlockType, instructions: List(instruction.Instruction)) -> Result(#(MachineState, option.Option(Jump)), String)
 {
     // 1. Let F be the current frame.
     use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.loop: couldn't get the current frame"))
@@ -428,7 +333,6 @@ pub fn loop(state: MachineState, block_type: instruction.BlockType, instructions
     // 3. Let [t_1^m] {\rightarrow} [t_2^n] be the function type {\mathrm{expand}}_F({\mathit{blocktype}}).
     use function_type <- result.try(expand_block_type(frame.framestate, block_type))
     let m = list.length(function_type.parameters)
-    // let n = list.length(function_type.results)
     // 4. Let L be the label whose arity is m and whose continuation is the start of the loop.
     let label = runtime.Label(arity: m, continuation: [instruction.Loop(block_type: block_type, instructions: instructions)])
     // 5. Assert: due to validation, there are at least m values on the top of the stack.
@@ -437,10 +341,10 @@ pub fn loop(state: MachineState, block_type: instruction.BlockType, instructions
     // 6. Pop the values {\mathit{val}}^m from the stack.
     let #(stack, values) = stack.pop_repeat(from: state.stack, up_to: m)
     // 7. Enter the block {\mathit{val}}^m~{\mathit{instr}}^\ast with label L.
-    execute_with_label(MachineState(..state, stack: stack), label, instructions, values |> list.reverse)
+    enter_with_label(MachineState(..state, stack: stack), label, instructions, values |> list.reverse)
 }
 
-pub fn block(state: MachineState, block_type: instruction.BlockType, instructions: List(instruction.Instruction)) -> Result(MachineState, String)
+pub fn block(state: MachineState, block_type: instruction.BlockType, instructions: List(instruction.Instruction)) -> Result(#(MachineState, option.Option(Jump)), String)
 {
     // 1. Let F be the current frame.
     use frame <- result.try(result.replace_error(stack.get_current_frame(from: state.stack), "gwr/execution/machine.block: couldn't get the current frame"))
@@ -457,51 +361,149 @@ pub fn block(state: MachineState, block_type: instruction.BlockType, instruction
     // 6. Pop the values {\mathit{val}}^m from the stack.
     let #(stack, values) = stack.pop_repeat(from: state.stack, up_to: m)
     // 7. Enter the block {\mathit{val}}^m~{\mathit{instr}}^\ast with label L.
-    execute_with_label(MachineState(..state, stack: stack), label, instructions, values |> list.reverse)
+    enter_with_label(MachineState(..state, stack: stack), label, instructions, values |> list.reverse)
 }
 
-pub fn execute_with_label(state: MachineState, label: runtime.Label, instructions: List(instruction.Instruction), parameters: List(stack.StackEntry)) -> Result(MachineState, String)
+pub fn enter_with_label(state: MachineState, label: runtime.Label, instructions: List(instruction.Instruction), parameters: List(stack.StackEntry)) -> Result(#(MachineState, option.Option(Jump)), String)
 {
-    // Entering {\mathit{instr}}^\ast with label L
-    // 1. Push L to the stack.
-    let state = MachineState(..state, stack: stack.push(state.stack, [stack.LabelEntry(label)] |> list.append(parameters) ))
-    // 2. Jump to the start of the instruction sequence {\mathit{instr}}^\ast.
-    use state <- result.try(execute(state, instructions))
-    
-    // Exiting {\mathit{instr}}^\ast with label L
+    let state = MachineState(..state, stack: stack.push(to: state.stack, push: [stack.LabelEntry(label)] |> list.append(parameters)))
+    evaluate_expression(state, instructions)
+}
 
-    case stack.peek(state.stack)
+pub fn exit_with_label(state: MachineState, label: runtime.Label) -> Result(MachineState, String)
+{
+    // 1. Pop all values {\mathit{val}}^\ast from the top of the stack.
+    let #(stack, values) = stack.pop_while(from: state.stack, with: stack.is_value)
+    // 2. Assert: due to validation, the label L is now on the top of the stack.
+    // 3. Pop the label from the stack.
+    use stack <- result.try(
+        case stack.pop(stack)
+        {
+            #(stack, option.Some(stack.LabelEntry(some_label))) if some_label == label -> Ok(stack)
+            #(_, anything_else) -> Error("gwr/execution/machine.exit_with_label: expected the label " <> string.inspect(label) <> " pushed to the stack before execution but got " <> string.inspect(anything_else))
+        }
+    )
+    // 4. Push {\mathit{val}}^\ast back to the stack.
+    let state = MachineState(..state, stack: stack.push(to: stack, push: values |> list.reverse))
+    // 5. Jump to the position after the {\mathsf{end}} of the structured control instruction associated with the label L.
+    Ok(state)
+}
+
+pub fn evaluate_expression(state: MachineState, instructions: List(instruction.Instruction)) -> Result(#(MachineState, option.Option(Jump)), String)
+{
+    case instructions
     {
-        option.Some(stack.ValueEntry(_)) ->
-        {
-            // @NOTE: this block handles exits by jumps (i.e., return)
-            Ok(state)
-        }
-        option.Some(stack.Jump(values)) ->
-        {
-            // @NOTE: this block handles jumps by br / br_if instructions
-            Ok(MachineState(..state, stack: stack.push(to: state.stack, push: values)))
-        }
+        [] -> Ok(#(state, option.None))
         _ ->
         {
-            // 1. Pop all values {\mathit{val}}^\ast from the top of the stack.
-            let #(stack, values) = stack.pop_while(from: state.stack, with: stack.is_value)
-            // 2. Assert: due to validation, the label L is now on the top of the stack.
-            // 3. Pop the label from the stack.
-
-            use stack <- result.try(
-                case stack.pop(stack)
+            use instruction <- result.try(result.replace_error(list.first(instructions), "gwr/execution/machine.evaluate_expression: couldn't get the current instruction"))
+            use #(state, jump) <- result.try(
+                case instruction
                 {
-                    #(stack, option.Some(stack.LabelEntry(some_label))) if some_label == label -> Ok(stack)
-                    #(_, anything_else) -> Error("gwr/execution/machine.execute_with_label: expected the label " <> string.inspect(label) <> " pushed to the stack before execution but got " <> string.inspect(anything_else))
+                    instruction.Block(block_type:, instructions:) -> block(state, block_type, instructions)
+                    instruction.If(block_type:, instructions:, else_: else_) -> if_else(state, block_type, instructions, else_)
+                    instruction.Loop(block_type:, instructions:) -> loop(state, block_type, instructions)
+                    instruction.Br(index:) -> br(state, index)
+                    instruction.BrIf(index:) -> br_if(state, index)
+                    instruction.Return -> return(state)
+                    _ -> result.map(
+                        case instruction {
+                            instruction.End -> Ok(state)
+                            instruction.Call(index:) -> call(state, index)
+
+                            instruction.I32Const(value) -> integer_const(state, types.Integer32, value)
+                            instruction.I64Const(value) -> integer_const(state, types.Integer64, value)
+                            instruction.F32Const(value) -> float_const(state, types.Float32, value)
+                            instruction.F64Const(value) -> float_const(state, types.Float64, value)
+                            instruction.I32Eqz -> integer_eqz(state, types.Integer32)
+                            instruction.I32Eq  -> integer_eq(state, types.Integer32)
+                            instruction.I32Ne  -> integer_ne(state, types.Integer32)
+                            instruction.I32LtS -> integer_lt_s(state, types.Integer32)
+                            instruction.I32LtU -> integer_lt_u(state, types.Integer32)
+                            instruction.I32GtS -> integer_gt_s(state, types.Integer32)
+                            instruction.I32GtU -> integer_gt_u(state, types.Integer32)
+                            instruction.I32LeS -> integer_le_s(state, types.Integer32)
+                            instruction.I32LeU -> integer_le_u(state, types.Integer32)
+                            instruction.I32GeS -> integer_ge_s(state, types.Integer32)
+                            instruction.I32GeU -> integer_ge_u(state, types.Integer32)
+                            instruction.I64Eqz -> integer_eqz(state, types.Integer64)
+                            instruction.I64Eq  -> integer_eq(state, types.Integer64)
+                            instruction.I64Ne  -> integer_ne(state, types.Integer64)
+                            instruction.I64LtS -> integer_lt_s(state, types.Integer64)
+                            instruction.I64LtU -> integer_lt_u(state, types.Integer64)
+                            instruction.I64GtS -> integer_gt_s(state, types.Integer64)
+                            instruction.I64GtU -> integer_gt_u(state, types.Integer64)
+                            instruction.I64LeS -> integer_le_s(state, types.Integer64)
+                            instruction.I64LeU -> integer_le_u(state, types.Integer64)
+                            instruction.I64GeS -> integer_ge_s(state, types.Integer64)
+                            instruction.I64GeU -> integer_ge_u(state, types.Integer64)
+                            instruction.F32Eq  -> float_eq(state, types.Float32)
+                            instruction.F32Ne  -> float_ne(state, types.Float32)
+                            instruction.F32Lt  -> float_lt(state, types.Float32)
+                            instruction.F32Gt  -> float_gt(state, types.Float32)
+                            instruction.F32Le  -> float_le(state, types.Float32)
+                            instruction.F32Ge  -> float_ge(state, types.Float32)
+                            instruction.F64Eq  -> float_eq(state, types.Float64)
+                            instruction.F64Ne  -> float_ne(state, types.Float64)
+                            instruction.F64Lt  -> float_lt(state, types.Float64)
+                            instruction.F64Gt  -> float_gt(state, types.Float64)
+                            instruction.F64Le  -> float_le(state, types.Float64)
+                            instruction.F64Ge  -> float_ge(state, types.Float64)
+
+                            instruction.I32Clz -> integer_clz(state, types.Integer32)
+                            instruction.I64Clz -> integer_clz(state, types.Integer64)
+                            instruction.I32Ctz -> integer_ctz(state, types.Integer32)
+                            instruction.I64Ctz -> integer_ctz(state, types.Integer64)
+                            instruction.I32Popcnt -> integer_popcnt(state, types.Integer32)
+                            instruction.I64Popcnt -> integer_popcnt(state, types.Integer64)
+                            
+                            instruction.LocalGet(index) -> local_get(state, index)
+                            instruction.LocalSet(index) -> local_set(state, index)
+                            instruction.I32Add -> integer_add(state, types.Integer32)
+                            instruction.I64Add -> integer_add(state, types.Integer64)
+                            instruction.I32Sub -> integer_sub(state, types.Integer32)
+                            instruction.I64Sub -> integer_sub(state, types.Integer64)
+                            unknown -> Error("gwr/execution/machine.evaluate_expression: attempt to execute an unknown or unimplemented instruction \"" <> string.inspect(unknown) <> "\"")
+                        },
+                        fn (state) { #(state, option.None) }
+                    )
                 }
             )
+            case jump
+            {
+                option.Some(Return) -> Ok(#(state, jump))
+                option.Some(Branch(target: instructions)) -> evaluate_expression(state, instructions)
+                option.None -> evaluate_expression(state, instructions |> list.drop(1))
+            }
+        }
+    }
+}
 
-            // 4. Push {\mathit{val}}^\ast back to the stack.
-            let state = MachineState(..state, stack: stack.push(to: stack, push: values |> list.reverse))
-            // 5. Jump to the position after the {\mathsf{end}} of the structured control instruction associated with the label L.
-            Ok(state)
-        }   
+pub fn if_else(state: MachineState, block_type: instruction.BlockType, if_instructions: List(instruction.Instruction), else_: option.Option(instruction.Instruction)) -> Result(#(MachineState, option.Option(Jump)), String)
+{
+    // 1. Assert: due to validation, a value of value type {\mathsf{i32}} is on the top of the stack.
+    // 2. Pop the value {\mathsf{i32}}.{\mathsf{const}}~c from the stack.
+    case stack.pop_as(from: state.stack, with: stack.to_value)
+    {
+        Ok(#(stack, runtime.Integer32(c))) ->
+        {
+            let state = MachineState(..state, stack: stack)
+            case c != 0
+            {
+                // 3. If c is non-zero, then:
+                //     a. Execute the block instruction {\mathsf{block}}~{\mathit{blocktype}}~{\mathit{instr}}_1^\ast~{\mathsf{end}}.
+                True -> block(state, block_type, if_instructions)
+                // 4. Else:
+                //     a. Execute the block instruction {\mathsf{block}}~{\mathit{blocktype}}~{\mathit{instr}}_2^\ast~{\mathsf{end}}.
+                False -> case else_
+                {
+                    option.Some(instruction.Else(else_instructions)) -> block(state, block_type, else_instructions)
+                    option.None -> Ok(#(state, option.None))
+                    anything_else -> Error("gwr/execution/machine.if_else: illegal instruction in the Else's field " <> string.inspect(anything_else))
+                }
+            }
+        }
+        anything_else -> Error("gwr/execution/machine.if_else: expected the If's continuation flag but got " <> string.inspect(anything_else))
     }
 }
 

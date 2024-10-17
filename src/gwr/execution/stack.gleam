@@ -17,10 +17,6 @@ pub type StackEntry
     ValueEntry(runtime.Value)
     LabelEntry(runtime.Label)
     ActivationEntry(runtime.Frame)
-    // @NOTE: the "Jump" entry is not part of the spec and
-    // is intended for signaling down stack that a jump has
-    // occurred.
-    Jump(List(StackEntry))
 }
 
 pub fn create() -> Stack
@@ -193,6 +189,15 @@ pub fn get_current_frame(from stack: Stack) -> Result(runtime.Frame, Nil)
         #(_, option.Some(ActivationEntry(frame))) -> Ok(frame)
         _ -> Error(Nil)
     }
+}
+
+pub fn get_current_label(from stack: Stack) -> Result(runtime.Label, Nil)
+{
+    pop_while(from: stack, with: fn (entry) { !is_activation_frame(entry) }).1
+    |> list.filter(is_label)
+    |> list.map(to_label)
+    |> result.values
+    |> list.first
 }
 
 pub fn replace_current_frame(from stack: Stack, with new_frame: runtime.Frame) -> Result(Stack, Nil)
