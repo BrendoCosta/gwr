@@ -1,3 +1,4 @@
+import gleam/string
 import gleam/list
 import gleam/result
 
@@ -21,8 +22,12 @@ pub type WebAssemblyInstance
 pub fn create(from data: BitArray) -> Result(WebAssemblyInstance, String)
 {
     use #(_, binary) <- result.try(binary_parser.parse_binary_module(byte_reader.create(from: data)))
-    use machine <- result.try(machine.initialize(binary.module))
-    Ok(WebAssemblyInstance(binary: binary, machine: machine))
+    let res = machine.initialize(binary.module)
+    case res
+    {
+        Ok(x) -> Ok(WebAssemblyInstance(binary: binary, machine: x))
+        Error(err) -> Error(string.inspect(err))
+    }
 }
 
 pub fn call(instance: WebAssemblyInstance, name: String, arguments: List(runtime.Value)) -> Result(#(WebAssemblyInstance, List(runtime.Value)), String)

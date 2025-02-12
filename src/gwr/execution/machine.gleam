@@ -11,6 +11,7 @@ import gleam/string
 import gwr/execution/runtime
 import gwr/execution/stack
 import gwr/execution/store
+import gwr/execution/trap
 import gwr/syntax/index
 import gwr/syntax/instruction
 import gwr/syntax/module
@@ -36,7 +37,6 @@ pub type Jump
 
 pub fn initialize(from module: module.Module) -> Result(Machine, String)
 {
-
     let store = store.Store
     (
         datas: [],
@@ -400,6 +400,7 @@ pub fn evaluate_expression(state: MachineState, instructions: List(instruction.I
             use #(state, jump) <- result.try(
                 case instruction
                 {
+                    // Control Instructions
                     instruction.Block(block_type:, instructions:) -> block(state, block_type, instructions)
                     instruction.If(block_type:, instructions:, else_: else_) -> if_else(state, block_type, instructions, else_)
                     instruction.Loop(block_type:, instructions:) -> loop(state, block_type, instructions)
@@ -410,55 +411,58 @@ pub fn evaluate_expression(state: MachineState, instructions: List(instruction.I
                         case instruction {
                             instruction.End -> Ok(state)
                             instruction.Call(index:) -> call(state, index)
-
+                            // Reference Instructions
+                            // Parametric Instructions
+                            // Variable Instructions
+                            instruction.LocalGet(index) -> local_get(state, index)
+                            instruction.LocalSet(index) -> local_set(state, index)
+                            // Table Instructions
+                            // Memory Instructions
+                            // Numeric Instructions
                             instruction.I32Const(value) -> integer_const(state, types.Integer32, value)
                             instruction.I64Const(value) -> integer_const(state, types.Integer64, value)
-                            instruction.F32Const(value) -> float_const(state, types.Float32, value)
-                            instruction.F64Const(value) -> float_const(state, types.Float64, value)
+                            instruction.F32Const(value) -> float_const(state, types.Float32, value) |> result.replace_error("")
+                            instruction.F64Const(value) -> float_const(state, types.Float64, value) |> result.replace_error("")
                             instruction.I32Eqz -> integer_eqz(state, types.Integer32)
-                            instruction.I32Eq  -> integer_eq(state, types.Integer32)
-                            instruction.I32Ne  -> integer_ne(state, types.Integer32)
-                            instruction.I32LtS -> integer_lt_s(state, types.Integer32)
-                            instruction.I32LtU -> integer_lt_u(state, types.Integer32)
-                            instruction.I32GtS -> integer_gt_s(state, types.Integer32)
-                            instruction.I32GtU -> integer_gt_u(state, types.Integer32)
-                            instruction.I32LeS -> integer_le_s(state, types.Integer32)
-                            instruction.I32LeU -> integer_le_u(state, types.Integer32)
-                            instruction.I32GeS -> integer_ge_s(state, types.Integer32)
-                            instruction.I32GeU -> integer_ge_u(state, types.Integer32)
                             instruction.I64Eqz -> integer_eqz(state, types.Integer64)
+                            instruction.I32Eq  -> integer_eq(state, types.Integer32)
                             instruction.I64Eq  -> integer_eq(state, types.Integer64)
+                            instruction.I32Ne  -> integer_ne(state, types.Integer32)
                             instruction.I64Ne  -> integer_ne(state, types.Integer64)
+                            instruction.I32LtS -> integer_lt_s(state, types.Integer32)
                             instruction.I64LtS -> integer_lt_s(state, types.Integer64)
+                            instruction.I32LtU -> integer_lt_u(state, types.Integer32)
                             instruction.I64LtU -> integer_lt_u(state, types.Integer64)
+                            instruction.I32GtS -> integer_gt_s(state, types.Integer32)
                             instruction.I64GtS -> integer_gt_s(state, types.Integer64)
+                            instruction.I32GtU -> integer_gt_u(state, types.Integer32)
                             instruction.I64GtU -> integer_gt_u(state, types.Integer64)
+                            instruction.I32LeS -> integer_le_s(state, types.Integer32)
                             instruction.I64LeS -> integer_le_s(state, types.Integer64)
+                            instruction.I32LeU -> integer_le_u(state, types.Integer32)
                             instruction.I64LeU -> integer_le_u(state, types.Integer64)
+                            instruction.I32GeS -> integer_ge_s(state, types.Integer32)
                             instruction.I64GeS -> integer_ge_s(state, types.Integer64)
+                            instruction.I32GeU -> integer_ge_u(state, types.Integer32)
                             instruction.I64GeU -> integer_ge_u(state, types.Integer64)
                             instruction.F32Eq  -> float_eq(state, types.Float32)
-                            instruction.F32Ne  -> float_ne(state, types.Float32)
-                            instruction.F32Lt  -> float_lt(state, types.Float32)
-                            instruction.F32Gt  -> float_gt(state, types.Float32)
-                            instruction.F32Le  -> float_le(state, types.Float32)
-                            instruction.F32Ge  -> float_ge(state, types.Float32)
                             instruction.F64Eq  -> float_eq(state, types.Float64)
+                            instruction.F32Ne  -> float_ne(state, types.Float32)
                             instruction.F64Ne  -> float_ne(state, types.Float64)
+                            instruction.F32Lt  -> float_lt(state, types.Float32)
                             instruction.F64Lt  -> float_lt(state, types.Float64)
+                            instruction.F32Gt  -> float_gt(state, types.Float32)
                             instruction.F64Gt  -> float_gt(state, types.Float64)
+                            instruction.F32Le  -> float_le(state, types.Float32)
                             instruction.F64Le  -> float_le(state, types.Float64)
+                            instruction.F32Ge  -> float_ge(state, types.Float32)
                             instruction.F64Ge  -> float_ge(state, types.Float64)
-
                             instruction.I32Clz -> integer_clz(state, types.Integer32)
                             instruction.I64Clz -> integer_clz(state, types.Integer64)
                             instruction.I32Ctz -> integer_ctz(state, types.Integer32)
                             instruction.I64Ctz -> integer_ctz(state, types.Integer64)
                             instruction.I32Popcnt -> integer_popcnt(state, types.Integer32)
                             instruction.I64Popcnt -> integer_popcnt(state, types.Integer64)
-                            
-                            instruction.LocalGet(index) -> local_get(state, index)
-                            instruction.LocalSet(index) -> local_set(state, index)
                             instruction.I32Add -> integer_add(state, types.Integer32)
                             instruction.I64Add -> integer_add(state, types.Integer64)
                             instruction.I32Sub -> integer_sub(state, types.Integer32)
@@ -646,7 +650,7 @@ pub fn integer_const(state: MachineState, type_: types.NumberType, value: Int) -
     Ok(MachineState(..state, stack: stack))
 }
 
-pub fn float_const(state: MachineState, type_: types.NumberType, value: ieee_float.IEEEFloat) -> Result(MachineState, String)
+pub fn float_const(state: MachineState, type_: types.NumberType, value: ieee_float.IEEEFloat) -> Result(MachineState, trap.Trap)
 {
     use built_in_float <- result.try(runtime.ieee_float_to_builtin_float(value))
     use entry <- result.try(
@@ -654,7 +658,9 @@ pub fn float_const(state: MachineState, type_: types.NumberType, value: ieee_flo
         {
             types.Float32 -> Ok(runtime.Float32(built_in_float))
             types.Float64 -> Ok(runtime.Float64(built_in_float))
-            anything_else -> Error("gwr/execution/machine.float_const: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+            anything_else -> trap.make(trap.BadArgument)
+                             |> trap.add_message("gwr/execution/machine.float_const: unexpected arguments \"" <> string.inspect(anything_else) <> "\"")
+                             |> trap.to_error()
         }
     )
     let stack = stack.push(state.stack, [stack.ValueEntry(entry)])

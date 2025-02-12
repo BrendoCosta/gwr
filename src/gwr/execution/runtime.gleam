@@ -4,6 +4,7 @@ import gleam/int
 import gleam/order
 import gleam/result
 
+import gwr/execution/trap
 import gwr/syntax/index
 import gwr/syntax/instruction
 import gwr/syntax/module
@@ -195,13 +196,13 @@ pub type ExternalValue
     Global(Address)
 }
 
-pub fn ieee_float_to_builtin_float(value: ieee_float.IEEEFloat) -> Result(FloatValue, String)
+pub fn ieee_float_to_builtin_float(value: ieee_float.IEEEFloat) -> Result(FloatValue, trap.Trap)
 {
     case ieee_float.is_finite(value)
     {
         True ->
         {
-            use fin <- result.try(result.replace_error(ieee_float.to_finite(value), "gwr/execution/runtime.ieee_float_to_builtin_float: error converting value to finite"))
+            use fin <- result.try(result.replace_error(ieee_float.to_finite(value), trap.make(trap.Unknown) |> trap.add_message("gwr/runtime/ieee_float_to_builtin_float: ieee_float.to_finite error") ))
             Ok(Finite(fin))
         }
         False -> case ieee_float.is_nan(value)
@@ -211,7 +212,9 @@ pub fn ieee_float_to_builtin_float(value: ieee_float.IEEEFloat) -> Result(FloatV
             {
                 Ok(order.Eq) -> Ok(Infinite(Positive))
                 Ok(order.Lt) -> Ok(Infinite(Negative))
-                _ -> Error("gwr/execution/runtime.ieee_float_to_builtin_float: unknown error")
+                _ -> trap.make(trap.Unknown)
+                     |> trap.add_message("gwr/runtime/ieee_float_to_builtin_float: ieee_float.compare error")
+                     |> trap.to_error()
             }
         }
     }
