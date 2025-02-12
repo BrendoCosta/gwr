@@ -1,7 +1,7 @@
-import gleam/iterator
 import gleam/list
 import gleam/option
 import gleam/result
+import gleam/yielder
 
 import gwr/execution/runtime
 
@@ -56,9 +56,9 @@ pub fn pop_repeat(from stack: Stack, up_to count: Int)
         False -> #(stack, [])
         True ->
         {
-            iterator.fold(
+            yielder.fold(
                 from: #(stack, []),
-                over: iterator.range(1, count),
+                over: yielder.range(1, count),
                 with: fn (accumulator, _)
                 {
                     let #(stack_after_pop, maybe_popped_entry) = pop(accumulator.0)

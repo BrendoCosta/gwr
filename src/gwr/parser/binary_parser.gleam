@@ -1,10 +1,10 @@
 import gleam/bit_array
 import gleam/bool
 import gleam/int
-import gleam/iterator
 import gleam/list
 import gleam/option.{Some, None}
 import gleam/result
+import gleam/yielder
 
 import gwr/binary
 import gwr/parser/convention_parser
@@ -167,9 +167,9 @@ pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte
     )
 
     use #(reader, filled_module, _) <- result.try(
-        iterator.fold(
+        yielder.fold(
             from: Ok(#(reader, empty_module, [])),
-            over: iterator.range(from: 0x00, to: 0x0c),
+            over: yielder.range(from: 0x00, to: 0x0c),
             with: fn (state, _)
             {
                 use #(reader, module, function_section_type_indices) <- result.try(state)

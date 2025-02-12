@@ -1,12 +1,12 @@
 import gleam/bool
 import gleam/dict
 import gleam/int
-import gleam/iterator
 import gleam/list
 import gleam/order
 import gleam/option
 import gleam/result
 import gleam/string
+import gleam/yielder
 
 import gwr/execution/runtime
 import gwr/execution/stack
@@ -276,9 +276,9 @@ pub fn br(state: MachineState, index: index.LabelIndex) -> Result(#(MachineState
 
     // 6. Repeat l+1 times:
     use stack <- result.try(
-        iterator.fold(
+        yielder.fold(
             from: Ok(stack),
-            over: iterator.range(1, index + 1),
+            over: yielder.range(1, index + 1),
             with: fn (accumulator, _)
             {
                 use stack <- result.try(accumulator)

@@ -2,9 +2,9 @@ import gleam/option
 import gleam/bit_array
 import gleam/bool
 import gleam/int
-import gleam/iterator
 import gleam/list
 import gleam/result
+import gleam/yielder
 
 import gwr/syntax/instruction
 import gwr/parser/byte_reader
@@ -278,9 +278,9 @@ pub fn parse_expression(from reader: byte_reader.ByteReader) -> Result(#(byte_re
     let data_length = bit_array.byte_size(data)
 
     use #(reader, expression) <- result.try(
-        iterator.fold(
+        yielder.fold(
             from: Ok(#(reader, [])),
-            over: iterator.range(1, data_length),
+            over: yielder.range(1, data_length),
             with: fn (state, _) {
                 
                 use #(reader, current_expression) <- result.try(state)

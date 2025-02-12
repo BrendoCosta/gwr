@@ -1,7 +1,7 @@
 import gleam/bool
-import gleam/iterator
 import gleam/list
 import gleam/result
+import gleam/yielder
 
 import gwr/parser/byte_reader
 import gwr/parser/value_parser
@@ -19,8 +19,8 @@ pub fn parse_vector(
     use <- bool.guard(when: vector_length == 0, return: Ok(#(reader, [])))
 
     use #(reader, objects_list) <- result.try(
-        iterator.try_fold(
-            over: iterator.range(from: 0, to: vector_length - 1),
+        yielder.try_fold(
+            over: yielder.range(from: 0, to: vector_length - 1),
             from: #(reader, []),
             with: fn (state, _index)
             {
