@@ -4,6 +4,7 @@ import gleam/result
 import gleam/yielder
 
 import gwr/execution/runtime
+import gwr/execution/trap
 
 /// https://webassembly.github.io/spec/core/exec/runtime.html#stack
 pub type Stack
@@ -115,7 +116,7 @@ pub fn pop_if(from stack: Stack, with predicate: fn (StackEntry) -> Bool) -> Res
     }
 }
 
-pub fn pop_as(from stack: Stack, with convert: fn (StackEntry) -> Result(a, String)) -> Result(#(Stack, a), String)
+pub fn pop_as(from stack: Stack, with convert: fn (StackEntry) -> Result(a, trap.Trap)) -> Result(#(Stack, a), trap.Trap)
 {
     case pop(from: stack)
     {
@@ -124,7 +125,9 @@ pub fn pop_as(from stack: Stack, with convert: fn (StackEntry) -> Result(a, Stri
             use value <- result.try(convert(entry))
             Ok(#(stack, value))
         }
-        _ -> Error("gwr/execution/stack.pop_as: the stack is empty")
+        _ -> trap.make(trap.Unknown)
+             |> trap.add_message("gwr/execution/stack.pop_as: the stack is empty")
+             |> trap.to_error()
     }
 }
 
@@ -155,30 +158,36 @@ pub fn is_activation_frame(entry: StackEntry) -> Bool
     }
 }
 
-pub fn to_value(entry: StackEntry) -> Result(runtime.Value, String)
+pub fn to_value(entry: StackEntry) -> Result(runtime.Value, trap.Trap)
 {
     case entry
     {
         ValueEntry(value) -> Ok(value)
-        _ -> Error("gwr/execution/stack.to_value: the entry at the top of the stack is not a ValueEntry")
+        _ -> trap.make(trap.Unknown)
+             |> trap.add_message("gwr/execution/stack.to_value: the entry at the top of the stack is not a ValueEntry")
+             |> trap.to_error()
     }
 }
 
-pub fn to_label(entry: StackEntry) -> Result(runtime.Label, String)
+pub fn to_label(entry: StackEntry) -> Result(runtime.Label, trap.Trap)
 {
     case entry
     {
         LabelEntry(label) -> Ok(label)
-        _ -> Error("gwr/execution/stack.to_label: the entry at the top of the stack is not a LabelEntry")
+        _ -> trap.make(trap.Unknown)
+             |> trap.add_message("gwr/execution/stack.to_label: the entry at the top of the stack is not a LabelEntry")
+             |> trap.to_error()
     }
 }
 
-pub fn to_frame(entry: StackEntry) -> Result(runtime.Frame, String)
+pub fn to_frame(entry: StackEntry) -> Result(runtime.Frame, trap.Trap)
 {
     case entry
     {
         ActivationEntry(frame) -> Ok(frame)
-        _ -> Error("gwr/execution/stack.to_frame: the entry at the top of the stack is not a ActivationEntry")
+        _ -> trap.make(trap.Unknown)
+             |> trap.add_message("gwr/execution/stack.to_frame: the entry at the top of the stack is not a ActivationEntry")
+             |> trap.to_error()
     }
 }
 

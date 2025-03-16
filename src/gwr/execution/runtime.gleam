@@ -14,6 +14,8 @@ import gwr/syntax/value
 import ieee_float
 
 pub const memory_page_size = 65_536
+
+/// https://webassembly.github.io/spec/core/exec/numerics.html#boolean-interpretation
 pub const true_ = Integer32(1)
 pub const false_ = Integer32(0)
 
@@ -220,14 +222,14 @@ pub fn ieee_float_to_builtin_float(value: ieee_float.IEEEFloat) -> Result(FloatV
     }
 }
 
-pub fn builtin_float_to_ieee_float(value: FloatValue) -> Result(ieee_float.IEEEFloat, String)
+pub fn builtin_float_to_ieee_float(value: FloatValue) -> ieee_float.IEEEFloat
 {
     case value
     {
-        Finite(v) -> Ok(ieee_float.finite(v))
-        Infinite(Positive) -> Ok(ieee_float.positive_infinity())
-        Infinite(Negative) -> Ok(ieee_float.negative_infinity())
-        NaN -> Ok(ieee_float.nan())
+        Finite(v) -> ieee_float.finite(v)
+        Infinite(Positive) -> ieee_float.positive_infinity()
+        Infinite(Negative) -> ieee_float.negative_infinity()
+        NaN -> ieee_float.nan()
     }
 }
 

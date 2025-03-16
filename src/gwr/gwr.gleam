@@ -5,7 +5,7 @@ import gleam/result
 import gwr/binary
 import gwr/execution/machine
 import gwr/execution/runtime
-import gwr/execution/stack
+import gwr/execution/trap
 import gwr/parser/binary_parser
 import gwr/parser/byte_reader
 import gwr/syntax/module
@@ -30,7 +30,7 @@ pub fn create(from data: BitArray) -> Result(WebAssemblyInstance, String)
     }
 }
 
-pub fn call(instance: WebAssemblyInstance, name: String, arguments: List(runtime.Value)) -> Result(#(WebAssemblyInstance, List(runtime.Value)), String)
+pub fn call(instance: WebAssemblyInstance, name: String, arguments: List(runtime.Value)) -> Result(#(WebAssemblyInstance, List(runtime.Value)), trap.Trap)
 {
     use function_index <- result.try(
         case list.find(in: instance.binary.module.exports, one_that: fn (export) {
@@ -42,25 +42,13 @@ pub fn call(instance: WebAssemblyInstance, name: String, arguments: List(runtime
         })
         {
             Ok(module.Export(name: _, descriptor: module.FunctionExport(index))) -> Ok(index)
-            _ -> Error("gwr/gwr.call: couldn't find an exported function with name \"" <> name <>"\" in the given module")
+            _ -> trap.make(trap.Unknown)
+                 |> trap.add_message("gwr/gwr.call: couldn't find an exported function with name \"" <> name <>"\" in the given module")
+                 |> trap.to_error()
         }
     )
 
-    // Push the arguments to the stack
-    let state = machine.MachineState
-    (
-        ..instance.machine.state,
-        stack: stack.push(to: instance.machine.state.stack, push: arguments |> list.map(fn (x) { stack.ValueEntry(x) }))
-    )
+    use #(machine, results) <- result.try(machine.invoke(instance.machine, runtime.FunctionAddress(function_index), arguments))
 
-    // Invoke the function at given index
-    use state <- result.try(machine.invoke(state, runtime.FunctionAddress(function_index)))
-
-    // Pop the results from the stack
-    let #(stack, values) = stack.pop_while(from: state.stack, with: stack.is_value)
-    let results = list.map(values, stack.to_value)
-                  |> result.values
-                  |> list.reverse
-
-    Ok(#(WebAssemblyInstance(..instance, machine: machine.Machine(..instance.machine, state: machine.MachineState(..state, stack: stack))), results))
+    Ok(#(WebAssemblyInstance(..instance, machine:), results))
 }
