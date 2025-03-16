@@ -1,20 +1,35 @@
-name: test
+name: tests
 
 on:
   push:
     branches:
-      - master
       - main
+      - staging
   pull_request:
-
+    types:
+      - opened
+      - synchronize
+      - reopened
+    branches:
+      - main
+      - staging
+  schedule:
+    - cron: 00 10 * * 3
+env:
+  GLEAM_VERSION: "1.9.1"
+  OTP_VERSION: "27.3"
 jobs:
-  test:
+  amd64:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "27.2"
-          gleam-version: "1.8.0"
-      - run: gleam deps download
-      - run: gleam test
+          otp-version: "${{ env.OTP_VERSION }}"
+          gleam-version: "${{ env.GLEAM_VERSION }}"
+      - name: Download dependencies
+        run: gleam deps download
+      - name: Update dependencies
+        run: gleam update
+      - name: Run tests (Erlang)
+        run: gleam test --target erlang
