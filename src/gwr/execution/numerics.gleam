@@ -14,13 +14,18 @@ fn two_power_n_minus_one(n: Int) -> Int
 }
 
 /// https://webassembly.github.io/spec/core/exec/numerics.html#sign-interpretation
-pub fn interpret_as_signed(n: Int, i: Int) -> Int
+pub fn signed(n: Int, i: Int) -> Int
 {
     case 0 <= i && i < two_power_n_minus_one(n)
     {
         True -> i
-        _ -> i - two_power_n(n)
+        _ -> unsigned(n, i) - two_power_n(n)
     }
+}
+
+pub fn unsigned(n: Int, i: Int) -> Int
+{
+    { i + two_power_n(n) } % two_power_n(n)
 }
 
 /// https://webassembly.github.io/spec/core/exec/numerics.html#boolean-interpretation
@@ -40,7 +45,7 @@ pub fn interpret_as_bool(c: Bool) -> Int
 /// https://webassembly.github.io/spec/core/exec/numerics.html#xref-exec-numerics-op-iadd-mathrm-iadd-n-i-1-i-2
 pub fn iadd(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    { i_1 + i_2 } % two_power_n(n)
+    unsigned(n, i_1 + i_2)
 }
 
 /// Return the result of subtracting i_2 from i_1 modulo 2^N.
@@ -50,7 +55,7 @@ pub fn iadd(n: Int, i_1: Int, i_2: Int) -> Int
 /// https://webassembly.github.io/spec/core/exec/numerics.html#xref-exec-numerics-op-isub-mathrm-isub-n-i-1-i-2
 pub fn isub(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    { i_1 - i_2 + two_power_n(n) } % two_power_n(n)
+    unsigned(n, i_1 - i_2)
 }
 
 /// Return the result of multiplying i_2 and i_1 modulo 2^N.
@@ -60,12 +65,14 @@ pub fn isub(n: Int, i_1: Int, i_2: Int) -> Int
 /// https://webassembly.github.io/spec/core/exec/numerics.html#xref-exec-numerics-op-imul-mathrm-imul-n-i-1-i-2
 pub fn imul(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    { i_1 * i_2 } % two_power_n(n)
+    unsigned(n, i_1 * i_2)
 }
 
 /// https://webassembly.github.io/spec/core/exec/numerics.html#xref-exec-numerics-op-idiv-u-mathrm-idiv-u-n-i-1-i-2
-pub fn idiv_u(i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
+pub fn idiv_u(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
 {
+    let i_1 = unsigned(n, i_1)
+    let i_2 = unsigned(n, i_2)
     case i_2
     {
         // If i_2 is 0, then the result is undefined.
@@ -74,7 +81,7 @@ pub fn idiv_u(i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
         _ ->
         {
             // Else, return the result of dividing i_1 by i_2, truncated toward zero.
-            result.replace_error(int.divide(i_1, i_2), trap.make(trap.DivisionByZero))
+            Ok(i_1 / i_2)
         }
     }
 }
@@ -83,9 +90,9 @@ pub fn idiv_u(i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
 pub fn idiv_s(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
 {
     // Let j_1 be the signed interpretation of i_1.
-    let j_1 = interpret_as_signed(n, i_1)
+    let j_1 = signed(n, i_1)
     // Let j_2 be the signed interpretation of i_2.
-    let j_2 = interpret_as_signed(n, i_2)
+    let j_2 = signed(n, i_2)
     let two_power_n_minus_one = two_power_n_minus_one(n)
     case j_2
     {
@@ -100,46 +107,37 @@ pub fn idiv_s(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
             _ ->
             {
                 // Else, return the result of dividing j_1 by j_2, truncated toward zero.
-                result.replace_error(int.divide(i_1, i_2), trap.make(trap.DivisionByZero))
+                Ok(unsigned(n, j_1 / j_2))
             }
         }
     }
 }
 
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-irem-u-mathrm-irem-u-n-i-1-i-2
-pub fn irem_u(i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
+pub fn irem_u(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
 {
-    case i_2
-    {
-        // If i_2 is 0, then the result is undefined.
-        0 -> trap.make(trap.DivisionByZero)
-             |> trap.to_error()
-        _ ->
-        {
-            // Else, return the remainder of dividing i_1 by i_2.
-            result.replace_error(int.remainder(i_1, i_2), trap.make(trap.DivisionByZero))
-        }
-    }
+    let i_1 = unsigned(n, i_1)
+    let i_2 = unsigned(n, i_2)
+    // If i_2 is 0, then the result is undefined.
+    // Else, return the remainder of dividing i_1 by i_2.
+    int.remainder(i_1, i_2)
+    |> result.replace_error(trap.make(trap.DivisionByZero))
 }
 
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-irem-s-mathrm-irem-s-n-i-1-i-2
 pub fn irem_s(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
 {
     // 1. Let j_1 be the signed interpretation of i_1.
-    let j_1 = interpret_as_signed(n, i_1)
+    let j_1 = signed(n, i_1)
     // 2. Let j_2 be the signed interpretation of i_2.
-    let j_2 = interpret_as_signed(n, i_2)
-    case i_2
-    {
-        // If i_2 is 0, then the result is undefined.
-        0 -> trap.make(trap.DivisionByZero)
-             |> trap.to_error()
-        _ ->
-        {
-            // Else, return the remainder of dividing j_1 by j_2, with the sign of the dividend j_1.
-            result.replace_error(int.remainder(j_1, j_2), trap.make(trap.DivisionByZero))
-        }
-    }
+    let j_2 = signed(n, i_2)
+    // If i_2 is 0, then the result is undefined.
+    // Else, return the remainder of dividing j_1 by j_2, with the sign of the dividend j_1.
+    use res <- result.try(
+        int.remainder(j_1, j_2)
+        |> result.replace_error(trap.make(trap.DivisionByZero))
+    )
+    Ok(unsigned(n, res))
 }
 
 /// Return the bitwise negation of i.
@@ -147,14 +145,17 @@ pub fn irem_s(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-inot-mathrm-inot-n-i
 pub fn inot(n: Int, i: Int) -> Int
 {
+    let i = unsigned(n, i)
     int.bitwise_exclusive_or(i, two_power_n_minus_one(n))
 }
 
 /// Return the bitwise conjunction of i_1 and i_2.
 /// 
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-iand-mathrm-iand-n-i-1-i-2
-pub fn iand(i_1: Int, i_2: Int) -> Int
+pub fn iand(n: Int, i_1: Int, i_2: Int) -> Int
 {
+    let i_1 = unsigned(n, i_1)
+    let i_2 = unsigned(n, i_2)
     int.bitwise_and(i_1, i_2)
 }
 
@@ -163,22 +164,26 @@ pub fn iand(i_1: Int, i_2: Int) -> Int
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-iandnot-mathrm-iandnot-n-i-1-i-2
 pub fn iandnot(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    iand(i_1, inot(n, i_2))
+    iand(n, i_1, inot(n, i_2))
 }
 
 /// Return the bitwise disjunction of i_1 and i_2.
 /// 
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ior-mathrm-ior-n-i-1-i-2
-pub fn ior(i_1: Int, i_2: Int) -> Int
+pub fn ior(n: Int, i_1: Int, i_2: Int) -> Int
 {
+    let i_1 = unsigned(n, i_1)
+    let i_2 = unsigned(n, i_2)
     int.bitwise_or(i_1, i_2)
 }
 
 /// Return the bitwise exclusive disjunction of i_1 and i_2.
 /// 
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ixor-mathrm-ixor-n-i-1-i-2
-pub fn ixor(i_1: Int, i_2: Int) -> Int
+pub fn ixor(n: Int, i_1: Int, i_2: Int) -> Int
 {
+    let i_1 = unsigned(n, i_1)
+    let i_2 = unsigned(n, i_2)
     int.bitwise_exclusive_or(i_1, i_2)
 }
 
@@ -430,9 +435,9 @@ pub fn ilt_u(i_1: Int, i_2: Int) -> Int
 pub fn ilt_s(n: Int, i_1: Int, i_2: Int) -> Int
 {
     // 1. Let j_1 be the signed interpretation of i_1.
-    let j_1 = interpret_as_signed(n, i_1)
+    let j_1 = signed(n, i_1)
     // 2. Let j_2 be the signed interpretation of i_2.
-    let j_2 = interpret_as_signed(n, i_2)
+    let j_2 = signed(n, i_2)
     // 3. Return 1 if j_1 is less than j_2, 0 otherwise.
     case j_1 < j_2
     {
@@ -459,9 +464,9 @@ pub fn igt_u(i_1: Int, i_2: Int) -> Int
 pub fn igt_s(n: Int, i_1: Int, i_2: Int) -> Int
 {
     // 1. Let j_1 be the signed interpretation of i_1.
-    let j_1 = interpret_as_signed(n, i_1)
+    let j_1 = signed(n, i_1)
     // 2. Let j_2 be the signed interpretation of i_2.
-    let j_2 = interpret_as_signed(n, i_2)
+    let j_2 = signed(n, i_2)
     // 3. Return 1 if j_1 is greater than j_2, 0 otherwise.
     case j_1 > j_2
     {
@@ -488,9 +493,9 @@ pub fn ile_u(i_1: Int, i_2: Int) -> Int
 pub fn ile_s(n: Int, i_1: Int, i_2: Int) -> Int
 {
     // 1. Let j_1 be the signed interpretation of i_1.
-    let j_1 = interpret_as_signed(n, i_1)
+    let j_1 = signed(n, i_1)
     // 2. Let j_2 be the signed interpretation of i_2.
-    let j_2 = interpret_as_signed(n, i_2)
+    let j_2 = signed(n, i_2)
     // 3. Return 1 if j_1 is less than or equal to j_2, 0 otherwise.
     case j_1 <= j_2
     {
@@ -517,9 +522,9 @@ pub fn ige_u(i_1: Int, i_2: Int) -> Int
 pub fn ige_s(n: Int, i_1: Int, i_2: Int) -> Int
 {
     // 1. Let j_1 be the signed interpretation of i_1.
-    let j_1 = interpret_as_signed(n, i_1)
+    let j_1 = signed(n, i_1)
     // 2. Let j_2 be the signed interpretation of i_2.
-    let j_2 = interpret_as_signed(n, i_2)
+    let j_2 = signed(n, i_2)
     // 3. Return 1 if j_1 is greater than or equal to j_2, 0 otherwise.
     case j_1 >= j_2
     {
@@ -547,7 +552,7 @@ pub fn ibitselect(i_1: Int, i_2: Int, i_3: Int) -> Int
 pub fn iabs(n: Int, i: Int) -> Int
 {
     // 1. Let j be the signed interpretation of i.
-    let j = interpret_as_signed(n, i)
+    let j = signed(n, i)
     // 2. If j is greater than or equal to 0, then return i.
     case j >= 0
     {

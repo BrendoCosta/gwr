@@ -2,7 +2,7 @@ import gleam/option
 
 import gwr/execution/debug
 
-pub type Trap
+pub opaque type Trap
 {
     Trap(kind: Kind, message: option.Option(String), stacktrace: List(debug.Stacktrace))
 }
@@ -30,4 +30,9 @@ pub fn add_message(trap: Trap, message: String) -> Trap
 pub fn to_error(trap: Trap) -> Result(a, Trap)
 {
     Error(trap)
+}
+
+pub fn kind(trap: Trap) -> Kind
+{
+    trap.kind
 }

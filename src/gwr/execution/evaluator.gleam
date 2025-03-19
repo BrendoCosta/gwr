@@ -242,7 +242,7 @@ pub fn evaluate_imul(stack: stack.Stack, type_: types.NumberType) -> Result(stac
 
 pub fn evaluate_idiv_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (_, a, b) { numerics.idiv_u(a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.idiv_u(get_bitwidth(t), a, b) }))
 }
 
 pub fn evaluate_idiv_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
@@ -252,7 +252,7 @@ pub fn evaluate_idiv_s(stack: stack.Stack, type_: types.NumberType) -> Result(st
 
 pub fn evaluate_irem_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (_, a, b) { numerics.irem_u(a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.irem_u(get_bitwidth(t), a, b) }))
 }
 
 pub fn evaluate_irem_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
@@ -262,17 +262,17 @@ pub fn evaluate_irem_s(stack: stack.Stack, type_: types.NumberType) -> Result(st
 
 pub fn evaluate_iand(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (_, a, b) { Ok(numerics.iand(a, b)) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(numerics.iand(get_bitwidth(t), a, b)) }))
 }
 
 pub fn evaluate_ior(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (_, a, b) { Ok(numerics.ior(a, b)) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(numerics.ior(get_bitwidth(t), a, b)) }))
 }
 
 pub fn evaluate_ixor(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (_, a, b) { Ok(numerics.ixor(a, b)) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(numerics.ixor(get_bitwidth(t), a, b)) }))
 }
 
 // ishl
