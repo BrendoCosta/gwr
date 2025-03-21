@@ -420,9 +420,9 @@ pub fn ine(i_1: Int, i_2: Int) -> Int
 /// Return 1 if i_1 is less than i_2, 0 otherwise.
 /// 
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ilt-u-mathrm-ilt-u-n-i-1-i-2
-pub fn ilt_u(i_1: Int, i_2: Int) -> Int
+pub fn ilt_u(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    case i_1 < i_2
+    case unsigned(n, i_1) < unsigned(n, i_2)
     {
         True -> 1
         _ -> 0
@@ -449,9 +449,9 @@ pub fn ilt_s(n: Int, i_1: Int, i_2: Int) -> Int
 /// Return 1 if i_1 is greater than i_2, 0 otherwise.
 /// 
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-igt-u-mathrm-igt-u-n-i-1-i-2
-pub fn igt_u(i_1: Int, i_2: Int) -> Int
+pub fn igt_u(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    case i_1 > i_2
+    case unsigned(n, i_1) > unsigned(n, i_2)
     {
         True -> 1
         _ -> 0
@@ -478,9 +478,9 @@ pub fn igt_s(n: Int, i_1: Int, i_2: Int) -> Int
 /// Return 1 if i_1 is less than or equal to i_2, 0 otherwise.
 /// 
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ile-u-mathrm-ile-u-n-i-1-i-2
-pub fn ile_u(i_1: Int, i_2: Int) -> Int
+pub fn ile_u(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    case i_1 <= i_2
+    case unsigned(n, i_1) <= unsigned(n, i_2)
     {
         True -> 1
         _ -> 0
@@ -507,9 +507,9 @@ pub fn ile_s(n: Int, i_1: Int, i_2: Int) -> Int
 /// Return 1 if i_1 is greater than or equal to i_2, 0 otherwise.
 /// 
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ige-u-mathrm-ige-u-n-i-1-i-2
-pub fn ige_u(i_1: Int, i_2: Int) -> Int
+pub fn ige_u(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    case i_1 >= i_2
+    case unsigned(n, i_1) >= unsigned(n, i_2)
     {
         True -> 1
         _ -> 0

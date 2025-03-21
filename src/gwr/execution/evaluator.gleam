@@ -313,42 +313,42 @@ pub fn evaluate_ine(stack: stack.Stack, type_: types.NumberType) -> Result(stack
 
 pub fn evaluate_ilt_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (_, a, b) { Ok(numerics.ilt_u(a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ilt_u(get_bitwidth(t), a, b)) }))
 }
 
 pub fn evaluate_ilt_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (type_, a, b) { Ok(numerics.ilt_s(get_bitwidth(type_), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ilt_s(get_bitwidth(t), a, b)) }))
 }
 
 pub fn evaluate_igt_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (_, a, b) { Ok(numerics.igt_u(a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.igt_u(get_bitwidth(t), a, b)) }))
 }
 
 pub fn evaluate_igt_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (type_, a, b) { Ok(numerics.igt_s(get_bitwidth(type_), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.igt_s(get_bitwidth(t), a, b)) }))
 }
 
 pub fn evaluate_ile_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (_, a, b) { Ok(numerics.ile_u(a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ile_u(get_bitwidth(t), a, b)) }))
 }
 
 pub fn evaluate_ile_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (type_, a, b) { Ok(numerics.ile_s(get_bitwidth(type_), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ile_s(get_bitwidth(t), a, b)) }))
 }
 
 pub fn evaluate_ige_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (_, a, b) { Ok(numerics.ige_u(a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ige_u(get_bitwidth(t), a, b)) }))
 }
 
 pub fn evaluate_ige_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (type_, a, b) { Ok(numerics.ige_s(get_bitwidth(type_), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ige_s(get_bitwidth(t), a, b)) }))
 }
 
 pub fn evaluate_local_get(stack: stack.Stack, index: index.LocalIndex) -> Result(stack.Stack, trap.Trap)
