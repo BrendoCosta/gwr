@@ -1,5 +1,7 @@
-import gleam/list
 import gleam/dict
+import gleam/list
+import gleam/option
+import gleam/pair
 
 import gwr/execution/evaluator
 import gwr/execution/numerics
@@ -147,5 +149,108 @@ pub fn evaluate_local_set_test()
                 )
             )
         ])
+    )
+}
+
+// A function call return should be flagged with an "Return" jump
+pub fn evaluate_return___return_flag___test()
+{
+    stack.create()
+    |> stack.push([
+        stack.ActivationEntry(
+            runtime.Frame(
+                arity: 0,
+                framestate: runtime.FrameState(
+                    module_instance: create_empty_module_instance(),
+                    locals: dict.new()
+                )
+            )
+        ),
+        stack.LabelEntry(
+            runtime.Label(arity: 0, continuation: [])
+        )
+    ])
+    |> evaluator.evaluate_return()
+    |> should.be_ok
+    |> pair.second
+    |> should.be_some
+    |> should.equal(evaluator.Return)
+}
+
+pub fn evaluate_return_test()
+{
+    stack.create()
+    |> stack.push([
+        // Function Call #1 should return 0 values from Function Call #2
+        stack.ActivationEntry(
+            runtime.Frame(
+                arity: 0,
+                framestate: runtime.FrameState(
+                    module_instance: create_empty_module_instance(),
+                    locals: dict.new()
+                )
+            )
+        ),
+        stack.LabelEntry(
+            runtime.Label(arity: 0, continuation: [])
+        ),
+        // Function Call #2 should return 2 values from Function Call #3
+        stack.ActivationEntry(
+            runtime.Frame(
+                arity: 2,
+                framestate: runtime.FrameState(
+                    module_instance: create_empty_module_instance(),
+                    locals: dict.new()
+                )
+            )
+        ),
+        stack.LabelEntry(
+            runtime.Label(arity: 2, continuation: [])
+        ),
+        // Function Call #3 should return 3 values
+        stack.ActivationEntry(
+            runtime.Frame(
+                arity: 3,
+                framestate: runtime.FrameState(
+                    module_instance: create_empty_module_instance(),
+                    locals: dict.new()
+                )
+            )
+        ),
+        stack.LabelEntry(
+            runtime.Label(arity: 3, continuation: [])
+        ),
+        stack.ValueEntry(runtime.Integer32(128)),
+        stack.ValueEntry(runtime.Integer32(256)),
+        stack.ValueEntry(runtime.Integer32(512))
+    ])
+    |> evaluator.evaluate_return() // Return from Function Call #3
+    |> should.be_ok
+    |> pair.first
+    |> evaluator.evaluate_return() // Return from Function Call #2
+    |> should.be_ok
+    |> should.equal(
+        #(
+            stack.create()
+            |> stack.push([
+                // Function Call #1
+                stack.ActivationEntry(
+                    runtime.Frame(
+                        arity: 0,
+                        framestate: runtime.FrameState(
+                            module_instance: create_empty_module_instance(),
+                            locals: dict.new()
+                        )
+                    )
+                ),
+                stack.LabelEntry(
+                    runtime.Label(arity: 0, continuation: [])
+                ),
+                // Values returned from Function Call #2
+                stack.ValueEntry(runtime.Integer32(256)),
+                stack.ValueEntry(runtime.Integer32(512))
+            ]),
+            option.Some(evaluator.Return)
+        )
     )
 }
