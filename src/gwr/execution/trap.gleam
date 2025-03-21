@@ -1,3 +1,4 @@
+import gleam/list
 import gleam/option
 
 import gwr/execution/debug
@@ -21,7 +22,7 @@ pub type Kind
 
 pub fn make(kind: Kind) -> Trap
 {
-    Trap(kind:, message: option.None, stacktrace: debug.get_stacktrace())
+    Trap(kind:, message: option.None, stacktrace: debug.get_stacktrace() |> list.drop(2))
 }
 
 pub fn add_message(trap: Trap, message: String) -> Trap
