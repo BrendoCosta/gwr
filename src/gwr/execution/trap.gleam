@@ -12,6 +12,7 @@ pub type Kind
     Unknown
     BadArgument
     IndexOutOfBounds
+    Unreachable
     // Numeric traps
     DivisionByZero
     Overflow

@@ -776,6 +776,8 @@ pub fn evaluate_expression(stack: stack.Stack, store: store.Store, instructions:
                 case instruction
                 {
                     // Control Instructions
+                    instruction.NoOp -> Ok(#(stack, store, option.None))
+                    instruction.Unreachable -> trap.make(trap.Unreachable) |> trap.to_error()
                     instruction.End -> Ok(#(stack, store, option.None))
                     instruction.Block(block_type:, instructions:) -> evaluate_block(stack, store, block_type, instructions)
                     instruction.If(block_type:, instructions:, else_: else_) -> evaluate_if_else(stack, store, block_type, instructions, else_)
