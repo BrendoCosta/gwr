@@ -13,6 +13,7 @@ pub type Kind
     BadArgument
     IndexOutOfBounds
     Unreachable
+    InvalidState
     // Numeric traps
     DivisionByZero
     Overflow
