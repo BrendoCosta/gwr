@@ -2,9 +2,10 @@
 
 [![Package Version](https://img.shields.io/hexpm/v/gwr)](https://hex.pm/packages/gwr)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/gwr/)
-[![Package License](https://img.shields.io/hexpm/l/gwr)](https://hex.pm/packages/gwr)
+[![Package License](https://img.shields.io/hexpm/l/gwr)](/LICENSE)
 [![Package Total Downloads Count](https://img.shields.io/hexpm/dt/gwr)](https://hex.pm/packages/gwr)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/BrendoCosta/gwr/test.yml)](https://hex.pm/packages/gwr)
+[![Test Status](https://github.com/BrendoCosta/gwr/actions/workflows/test.yml/badge.svg)](https://github.com/BrendoCosta/gwr/actions)
+![Available for the Erlang runtime](https://img.shields.io/badge/target-Erlang-a2003e)
 [![Total Stars Count](https://img.shields.io/github/stars/BrendoCosta/gwr)](https://hex.pm/packages/gwr)
 
 ## Description
@@ -24,49 +25,76 @@ gleam add gwr
 ## Usage
 
 > [!IMPORTANT]
-> Currently the project is in an extremely early stage of development, it is only possible to run a simple sum function. Keep in mind that code and APIs may change dramatically.
+> Currently the project is in an extremely early stage of development; it is only possible to run very simple functions (consisting of basic integer arithmetic, function calls, and control flows). Keep in mind that code and APIs may change dramatically.
 
 ### Step 1 - Build code targeting Wasm
 
-#### Example - from Rust
+#### Example - Fibonacci sequence from Rust
 
 ```rust
-// sum.rs
+// fib.rs
 
 #![no_std]
 
 #[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> !
+pub fn panic(_info: &core::panic::PanicInfo) -> !
 {
     loop {}
 }
 
-#[no_mangle]
-pub extern fn sum(x: i32, y: i32) -> i32
+#[unsafe(no_mangle)]
+pub extern fn fib(value: i32) -> i32
 {
-    x + y
+    match value
+    {
+        v if v <= 0 => 0,
+        v if v == 1 => 1,
+        _ => fib(value - 1) + fib(value - 2)
+    }
 }
 ```
 ```sh
-rustc --crate-type cdylib --target wasm32-unknown-unknown -C debuginfo=none -C panic=abort -C strip=symbols -C opt-level=3 ./sum.rs -o ./sum.wasm
+rustc --crate-type cdylib --target wasm32-unknown-unknown -C debuginfo=none -C panic=abort -C strip=symbols -C opt-level=3 ./fib.rs -o ./fib.wasm
 ```
 
-#### Example - from Wat
+#### Example - Fibonacci sequence from WAT
 
 Using the wat2wasm tool from [wabt](https://github.com/WebAssembly/wabt).
 
 ```wasm
-;; sum.wat
+;; fib.wat
 
 (module
-    (type $t0 (func (param i32 i32) (result i32)))
-    (func $sum (export "sum") (type $t0) (param $p0 i32) (param $p1 i32) (result i32)
-        (i32.add (local.get $p0) (local.get $p1))
+    (func $fib (export "fib") (param $value i32) (result i32)
+        local.get $value
+        i32.const 0
+        i32.le_s
+        if
+            i32.const 0
+            return
+        end
+        local.get $value
+        i32.const 2
+        i32.le_s
+        if
+            i32.const 1
+            return
+        end
+        local.get $value
+        i32.const 1
+        i32.sub
+        call $fib
+        local.get $value
+        i32.const 2
+        i32.sub
+        call $fib
+        i32.add
+        return
     )
 )
 ```
 ```sh
-wat2wasm -o ./sum.wasm ./sum.wat
+wat2wasm -o ./fib.wasm ./fib.wat
 ```
 
 ### Step 2 - Run it from Gleam with GWR
@@ -84,12 +112,24 @@ import simplifile
 
 pub fn main()
 {
-    let assert Ok(module_data) = simplifile.read_bits(from: "sum.wasm")
+    let assert Ok(module_data) = simplifile.read_bits(from: "fib.wasm")
     let assert Ok(instance) = gwr.create(from: module_data)
-    let assert Ok(#(instance, result)) = gwr.call(instance, "sum", [runtime.Integer32(4), runtime.Integer32(2)])
-    let assert [runtime.Integer32(6)] = result
+    let assert Ok(#(instance, result)) = gwr.call(instance, "fib", [runtime.Integer32(18)])
+    let assert [runtime.Integer32(2584)] = result
 }
 ```
+
+## Building
+
+### Testing
+
+To test the project, you must have Make and Docker (or Podman) installed in your environment. The project has a test suite written in Rust and WebAssembly text format intended to be built for the wasm target; the build process is containerized so there is no need to install additional toolchains.
+
+```sh
+make test
+```
+
+The above command is equivalent to ```make build-test-suite``` followed by ```gleam test```. Of course, once you have built the test suite, you can simply invoke ```gleam test```.
 
 ## Contributing
 
