@@ -1,4 +1,3 @@
-;; wat2wasm ./test/assets/control/loop.wat -o ./test/assets/control/loop.wasm
 (module
     (func $loop_test (export "loop_test") (result i32)
         (local $i i32)

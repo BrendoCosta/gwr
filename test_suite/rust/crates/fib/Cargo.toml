@@ -1,0 +1,6 @@
+[package]
+name = "fib"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]

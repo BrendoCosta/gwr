@@ -1,4 +1,3 @@
-;; wat2wasm ./test/assets/control/recursion.wat -o ./test/assets/control/recursion.wasm
 (module
     (func $recursion_test (export "recursion_test") (param $a i32) (param $accumulator i32) (result i32)
         (if (result i32)

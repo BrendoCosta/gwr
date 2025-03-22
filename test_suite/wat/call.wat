@@ -1,4 +1,3 @@
-;; wat2wasm ./test/assets/control/call.wat -o ./test/assets/control/call.wasm
 (module
     (func $sum (param $a i32) (param $b i32) (result i32)
         local.get $a

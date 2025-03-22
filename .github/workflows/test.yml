@@ -27,9 +27,11 @@ jobs:
         with:
           otp-version: "${{ env.OTP_VERSION }}"
           gleam-version: "${{ env.GLEAM_VERSION }}"
+      - name: Install build dependencies
+        run: apt-get -y install make podman
       - name: Download dependencies
         run: gleam deps download
       - name: Update dependencies
         run: gleam update
       - name: Run tests (Erlang)
-        run: gleam test --target erlang
+        run: make test

@@ -1,0 +1,12 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/fib",
+]
+
+[profile.release]
+opt-level = 3
+overflow-checks = false
+debug = false
+strip = "symbols"
+panic = "abort"
