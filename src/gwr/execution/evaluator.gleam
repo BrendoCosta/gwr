@@ -422,7 +422,7 @@ pub fn evaluate_return(stack: stack.Stack) -> Result(#(stack.Stack, option.Optio
     // 2. Let n be the arity of F.
     let n = frame.arity
     // 3. Assert: due to validation, there are at least n values on the top of the stack.
-    let count_of_values_on_top = stack.pop_while(from: stack, with: stack.is_value).1 |> list.length
+    let count_of_values_on_top = stack.count_on_top(from: stack, with: stack.is_value)
     use <- bool.guard(when: count_of_values_on_top < n, return:
         trap.make(trap.InvalidState)
         |> trap.add_message("gwr/execution/evaluator.evaluate_return: expected the top of the stack to contains at least " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top))
@@ -614,7 +614,7 @@ pub fn evaluate_br(stack: stack.Stack, store: store.Store, index: index.LabelInd
     use label <- result.try(stack.to_label(label_entry))
     let n = label.arity
     // 4. Assert: due to validation, there are at least n values on the top of the stack.
-    let count_of_values_on_top = stack.pop_while(from: stack, with: stack.is_value).1 |> list.length
+    let count_of_values_on_top = stack.count_on_top(from: stack, with: stack.is_value)
     use <- bool.guard(when: count_of_values_on_top < n, return:
         trap.make(trap.InvalidState)
         |> trap.add_message("gwr/execution/evaluator.evaluate_br: expected the top of the stack to contains at least " <> int.to_string(n) <> " values but got " <> int.to_string(count_of_values_on_top))
@@ -694,7 +694,7 @@ pub fn evaluate_loop(stack: stack.Stack, store: store.Store, block_type: instruc
     // 4. Let L be the label whose arity is m and whose continuation is the start of the loop.
     let label = runtime.Label(arity: m, continuation: [instruction.Loop(block_type: block_type, instructions: instructions)])
     // 5. Assert: due to validation, there are at least m values on the top of the stack.
-    let count_of_values_on_top = stack.pop_while(from: stack, with: stack.is_value).1 |> list.length
+    let count_of_values_on_top = stack.count_on_top(from: stack, with: stack.is_value)
     use <- bool.guard(when: count_of_values_on_top < m, return:
         trap.make(trap.InvalidState)
         |> trap.add_message("gwr/execution/evaluator.evaluate_loop: expected the top of the stack to contains at least " <> int.to_string(m) <> " values but got " <> int.to_string(count_of_values_on_top))
@@ -724,7 +724,7 @@ pub fn evaluate_block(stack: stack.Stack, store: store.Store, block_type: instru
     // 4. Let L be the label whose arity is n and whose continuation is the end of the block.
     let label = runtime.Label(arity: n, continuation: [])
     // 5. Assert: due to validation, there are at least m values on the top of the stack.
-    let count_of_values_on_top = stack.pop_while(from: stack, with: stack.is_value).1 |> list.length
+    let count_of_values_on_top = stack.count_on_top(from: stack, with: stack.is_value)
     use <- bool.guard(when: count_of_values_on_top < m, return:
         trap.make(trap.InvalidState)
         |> trap.add_message("gwr/execution/evaluator.evaluate_block: expected the top of the stack to contains at least " <> int.to_string(m) <> " values but got " <> int.to_string(count_of_values_on_top))
