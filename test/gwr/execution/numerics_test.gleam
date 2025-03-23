@@ -469,3 +469,185 @@ pub fn ilt_u___i32___test()
         |> should.equal(expected)
     })
 }
+
+/// https://github.com/WebAssembly/testsuite/blob/d76759e746f3564a03f6106ae19679742f2a1831/i32.wast#L322
+pub fn ilt_s___i32___test()
+{
+    [
+        #(0, 0, 0),
+        #(1, 1, 0),
+        #(-1, 1, 1),
+        #(0x80000000, 0x80000000, 0),
+        #(0x7fffffff, 0x7fffffff, 0),
+        #(-1, -1, 0),
+        #(1, 0, 0),
+        #(0, 1, 1),
+        #(0x80000000, 0, 1),
+        #(0, 0x80000000, 0),
+        #(0x80000000, -1, 1),
+        #(-1, 0x80000000, 0),
+        #(0x80000000, 0x7fffffff, 1),
+        #(0x7fffffff, 0x80000000, 0),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.ilt_s(32, a, b)
+        |> should.equal(expected)
+    })
+}
+
+/// https://github.com/WebAssembly/testsuite/blob/d76759e746f3564a03f6106ae19679742f2a1831/i32.wast#L397
+pub fn igt_u___i32___test()
+{
+    [
+        #(0, 0, 0),
+        #(1, 1, 0),
+        #(-1, 1, 1),
+        #(0x80000000, 0x80000000, 0),
+        #(0x7fffffff, 0x7fffffff, 0),
+        #(-1, -1, 0),
+        #(1, 0, 1),
+        #(0, 1, 0),
+        #(0x80000000, 0, 1),
+        #(0, 0x80000000, 0),
+        #(0x80000000, -1, 0),
+        #(-1, 0x80000000, 1),
+        #(0x80000000, 0x7fffffff, 1),
+        #(0x7fffffff, 0x80000000, 0),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.igt_u(32, a, b)
+        |> should.equal(expected)
+    })
+}
+
+/// https://github.com/WebAssembly/testsuite/blob/d76759e746f3564a03f6106ae19679742f2a1831/i32.wast#L382C1-L395C92
+pub fn igt_s___i32___test()
+{
+    [
+        #(0, 0, 0),
+        #(1, 1, 0),
+        #(-1, 1, 0),
+        #(0x80000000, 0x80000000, 0),
+        #(0x7fffffff, 0x7fffffff, 0),
+        #(-1, -1, 0),
+        #(1, 0, 1),
+        #(0, 1, 0),
+        #(0x80000000, 0, 0),
+        #(0, 0x80000000, 1),
+        #(0x80000000, -1, 0),
+        #(-1, 0x80000000, 1),
+        #(0x80000000, 0x7fffffff, 0),
+        #(0x7fffffff, 0x80000000, 1),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.igt_s(32, a, b)
+        |> should.equal(expected)
+    })
+}
+
+/// https://github.com/WebAssembly/testsuite/blob/d76759e746f3564a03f6106ae19679742f2a1831/i32.wast#L367C1-L380C92
+pub fn ile_u___i32___test()
+{
+    [
+        #(0, 0, 1),
+        #(1, 1, 1),
+        #(-1, 1, 0),
+        #(0x80000000, 0x80000000, 1),
+        #(0x7fffffff, 0x7fffffff, 1),
+        #(-1, -1, 1),
+        #(1, 0, 0),
+        #(0, 1, 1),
+        #(0x80000000, 0, 0),
+        #(0, 0x80000000, 1),
+        #(0x80000000, -1, 1),
+        #(-1, 0x80000000, 0),
+        #(0x80000000, 0x7fffffff, 0),
+        #(0x7fffffff, 0x80000000, 1),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.ile_u(32, a, b)
+        |> should.equal(expected)
+    })
+}
+
+/// https://github.com/WebAssembly/testsuite/blob/d76759e746f3564a03f6106ae19679742f2a1831/i32.wast#L352C1-L365C92
+pub fn ile_s___i32___test()
+{
+    [
+        #(0, 0, 1),
+        #(1, 1, 1),
+        #(-1, 1, 1),
+        #(0x80000000, 0x80000000, 1),
+        #(0x7fffffff, 0x7fffffff, 1),
+        #(-1, -1, 1),
+        #(1, 0, 0),
+        #(0, 1, 1),
+        #(0x80000000, 0, 1),
+        #(0, 0x80000000, 0),
+        #(0x80000000, -1, 1),
+        #(-1, 0x80000000, 0),
+        #(0x80000000, 0x7fffffff, 1),
+        #(0x7fffffff, 0x80000000, 0),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.ile_s(32, a, b)
+        |> should.equal(expected)
+    })
+}
+
+/// https://github.com/WebAssembly/testsuite/blob/d76759e746f3564a03f6106ae19679742f2a1831/i32.wast#L427C1-L440C92
+pub fn ige_u___i32___test()
+{
+    [
+        #(0, 0, 1),
+        #(1, 1, 1),
+        #(-1, 1, 1),
+        #(0x80000000, 0x80000000, 1),
+        #(0x7fffffff, 0x7fffffff, 1),
+        #(-1, -1, 1),
+        #(1, 0, 1),
+        #(0, 1, 0),
+        #(0x80000000, 0, 1),
+        #(0, 0x80000000, 0),
+        #(0x80000000, -1, 0),
+        #(-1, 0x80000000, 1),
+        #(0x80000000, 0x7fffffff, 1),
+        #(0x7fffffff, 0x80000000, 0),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.ige_u(32, a, b)
+        |> should.equal(expected)
+    })
+}
+
+/// https://github.com/WebAssembly/testsuite/blob/d76759e746f3564a03f6106ae19679742f2a1831/i32.wast#L412
+pub fn ige_s___i32___test()
+{
+    [
+        #(0, 0, 1),
+        #(1, 1, 1),
+        #(-1, 1, 0),
+        #(0x80000000, 0x80000000, 1),
+        #(0x7fffffff, 0x7fffffff, 1),
+        #(-1, -1, 1),
+        #(1, 0, 1),
+        #(0, 1, 0),
+        #(0x80000000, 0, 0),
+        #(0, 0x80000000, 1),
+        #(0x80000000, -1, 0),
+        #(-1, 0x80000000, 1),
+        #(0x80000000, 0x7fffffff, 0),
+        #(0x7fffffff, 0x80000000, 1),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.ige_s(32, a, b)
+        |> should.equal(expected)
+    })
+}

@@ -29,7 +29,7 @@ pub fn unsigned(n: Int, i: Int) -> Int
 }
 
 /// https://webassembly.github.io/spec/core/exec/numerics.html#boolean-interpretation
-pub fn interpret_as_bool(c: Bool) -> Int
+pub fn bool_to_int(c: Bool) -> Int
 {
     case c
     {
@@ -386,11 +386,7 @@ pub fn ipopcnt(n: Int, i: Int) -> Result(Int, trap.Trap)
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ieqz-mathrm-ieqz-n-i
 pub fn ieqz(i: Int) -> Int
 {
-    case i
-    {
-        0 -> 1
-        _ -> 0
-    }
+    bool_to_int(i == 0)
 }
 
 /// Return 1 if i_1 equals i_2, 0 otherwise.
@@ -398,11 +394,7 @@ pub fn ieqz(i: Int) -> Int
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ieq-mathrm-ieq-n-i-1-i-2
 pub fn ieq(i_1: Int, i_2: Int) -> Int
 {
-    case i_1 == i_2
-    {
-        True -> 1
-        _ -> 0
-    }
+    bool_to_int(i_1 == i_2)
 }
 
 /// Return 1 if i_1 does not equal i_2, 0 otherwise.
@@ -410,11 +402,7 @@ pub fn ieq(i_1: Int, i_2: Int) -> Int
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ine-mathrm-ine-n-i-1-i-2
 pub fn ine(i_1: Int, i_2: Int) -> Int
 {
-    case i_1 != i_2
-    {
-        True -> 1
-        _ -> 0
-    }
+    bool_to_int(i_1 != i_2)
 }
 
 /// Return 1 if i_1 is less than i_2, 0 otherwise.
@@ -422,11 +410,7 @@ pub fn ine(i_1: Int, i_2: Int) -> Int
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ilt-u-mathrm-ilt-u-n-i-1-i-2
 pub fn ilt_u(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    case unsigned(n, i_1) < unsigned(n, i_2)
-    {
-        True -> 1
-        _ -> 0
-    }
+    bool_to_int(unsigned(n, i_1) < unsigned(n, i_2))
 }
 
 /// Return 1 if i_1 is less than i_2, 0 otherwise.
@@ -439,11 +423,7 @@ pub fn ilt_s(n: Int, i_1: Int, i_2: Int) -> Int
     // 2. Let j_2 be the signed interpretation of i_2.
     let j_2 = signed(n, i_2)
     // 3. Return 1 if j_1 is less than j_2, 0 otherwise.
-    case j_1 < j_2
-    {
-        True -> 1
-        _ -> 0
-    }
+    bool_to_int(j_1 < j_2)
 }
 
 /// Return 1 if i_1 is greater than i_2, 0 otherwise.
@@ -451,11 +431,7 @@ pub fn ilt_s(n: Int, i_1: Int, i_2: Int) -> Int
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-igt-u-mathrm-igt-u-n-i-1-i-2
 pub fn igt_u(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    case unsigned(n, i_1) > unsigned(n, i_2)
-    {
-        True -> 1
-        _ -> 0
-    }
+    bool_to_int(unsigned(n, i_1) > unsigned(n, i_2))
 }
 
 /// Return 1 if i_1 is greater than i_2, 0 otherwise.
@@ -468,11 +444,7 @@ pub fn igt_s(n: Int, i_1: Int, i_2: Int) -> Int
     // 2. Let j_2 be the signed interpretation of i_2.
     let j_2 = signed(n, i_2)
     // 3. Return 1 if j_1 is greater than j_2, 0 otherwise.
-    case j_1 > j_2
-    {
-        True -> 1
-        _ -> 0
-    }
+    bool_to_int(j_1 > j_2)
 }
 
 /// Return 1 if i_1 is less than or equal to i_2, 0 otherwise.
@@ -480,11 +452,7 @@ pub fn igt_s(n: Int, i_1: Int, i_2: Int) -> Int
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ile-u-mathrm-ile-u-n-i-1-i-2
 pub fn ile_u(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    case unsigned(n, i_1) <= unsigned(n, i_2)
-    {
-        True -> 1
-        _ -> 0
-    }
+    bool_to_int(unsigned(n, i_1) <= unsigned(n, i_2))
 }
 
 /// Return 1 if i_1 is less than or equal to i_2, 0 otherwise.
@@ -497,11 +465,7 @@ pub fn ile_s(n: Int, i_1: Int, i_2: Int) -> Int
     // 2. Let j_2 be the signed interpretation of i_2.
     let j_2 = signed(n, i_2)
     // 3. Return 1 if j_1 is less than or equal to j_2, 0 otherwise.
-    case j_1 <= j_2
-    {
-        True -> 1
-        _ -> 0
-    }
+    bool_to_int(j_1 <= j_2)
 }
 
 /// Return 1 if i_1 is greater than or equal to i_2, 0 otherwise.
@@ -509,11 +473,7 @@ pub fn ile_s(n: Int, i_1: Int, i_2: Int) -> Int
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ige-u-mathrm-ige-u-n-i-1-i-2
 pub fn ige_u(n: Int, i_1: Int, i_2: Int) -> Int
 {
-    case unsigned(n, i_1) >= unsigned(n, i_2)
-    {
-        True -> 1
-        _ -> 0
-    }
+    bool_to_int(unsigned(n, i_1) >= unsigned(n, i_2))
 }
 
 /// Return 1 if i_1 is greater than or equal to i_2, 0 otherwise.
@@ -526,11 +486,7 @@ pub fn ige_s(n: Int, i_1: Int, i_2: Int) -> Int
     // 2. Let j_2 be the signed interpretation of i_2.
     let j_2 = signed(n, i_2)
     // 3. Return 1 if j_1 is greater than or equal to j_2, 0 otherwise.
-    case j_1 >= j_2
-    {
-        True -> 1
-        _ -> 0
-    }
+    bool_to_int(j_1 >= j_2)
 }
 
 // iextendM_s
