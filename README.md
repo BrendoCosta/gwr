@@ -112,9 +112,10 @@ import simplifile
 
 pub fn main()
 {
-    let assert Ok(module_data) = simplifile.read_bits(from: "fib.wasm")
-    let assert Ok(instance) = gwr.create(from: module_data)
-    let assert Ok(#(instance, result)) = gwr.call(instance, "fib", [runtime.Integer32(18)])
+    let assert Ok(data) = simplifile.read_bits(from: "fib.wasm")
+    let assert Ok(binary) = gwr.load(from: data)
+    let assert Ok(instance) = gwr.create(from: binary)
+    let assert Ok(#(_instance, result)) = gwr.call(instance, "fib", [runtime.Integer32(18)])
     let assert [runtime.Integer32(2584)] = result
 }
 ```

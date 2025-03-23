@@ -1,13 +1,10 @@
 import gleam/dict
-import gleam/list
 import gleam/option
 import gleam/pair
 
 import gwr/execution/evaluator
-import gwr/execution/numerics
 import gwr/execution/runtime
 import gwr/execution/stack
-import gwr/execution/trap
 import gwr/syntax/types
 
 import gleeunit

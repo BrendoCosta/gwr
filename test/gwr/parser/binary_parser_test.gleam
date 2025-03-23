@@ -3,6 +3,7 @@ import gleam/option.{None, Some}
 import gwr/binary
 import gwr/parser/binary_parser
 import gwr/parser/byte_reader
+import gwr/parser/parsing_error
 import gwr/syntax/instruction
 import gwr/syntax/module
 import gwr/syntax/types
@@ -99,6 +100,8 @@ pub fn parse_binary_module___empty_data___test()
 {
     binary_parser.parse_binary_module(byte_reader.create(from: <<>>))
     |> should.be_error
+    |> parsing_error.get_message
+    |> should.be_some
     |> should.equal("gwr/parser/binary_parser.parse_binary_module: empty data")
 }
 
@@ -106,6 +109,8 @@ pub fn parse_binary_module___could_not_find_module_magic_number_1___test()
 {
     binary_parser.parse_binary_module(byte_reader.create(from: <<0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00>>))
     |> should.be_error
+    |> parsing_error.get_message
+    |> should.be_some
     |> should.equal("gwr/parser/binary_parser.parse_binary_module: couldn't find module's magic number")
 }
 
@@ -113,6 +118,8 @@ pub fn parse_binary_module___could_not_find_module_magic_number_2___test()
 {
     binary_parser.parse_binary_module(byte_reader.create(from: <<0x00, 0x63, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00>>))
     |> should.be_error
+    |> parsing_error.get_message
+    |> should.be_some
     |> should.equal("gwr/parser/binary_parser.parse_binary_module: couldn't find module's magic number")
 }
 
@@ -120,6 +127,8 @@ pub fn parse_binary_module___could_not_find_module_version_1___test()
 {
     binary_parser.parse_binary_module(byte_reader.create(from: <<0x00, 0x61, 0x73, 0x6d>>))
     |> should.be_error
+    |> parsing_error.get_message
+    |> should.be_some
     |> should.equal("gwr/parser/binary_parser.parse_binary_module: couldn't find module version")
 }
 
@@ -127,6 +136,8 @@ pub fn parse_binary_module___could_not_find_module_version_2___test()
 {
     binary_parser.parse_binary_module(byte_reader.create(from: <<0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00>>))
     |> should.be_error
+    |> parsing_error.get_message
+    |> should.be_some
     |> should.equal("gwr/parser/binary_parser.parse_binary_module: couldn't find module version")
 }
 
@@ -161,6 +172,8 @@ pub fn parse_section___unexpected_end___test()
     >>)
     binary_parser.parse_section(reader)
     |> should.be_error
+    |> parsing_error.get_message
+    |> should.be_some
     |> should.equal("gwr/parser/binary_parser.parse_section: unexpected end of the section's content segment. Expected 9 bytes but got 8 bytes")
 }
 

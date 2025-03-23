@@ -1,4 +1,3 @@
-import gleam/string
 import gleam/list
 import gleam/result
 
@@ -8,6 +7,7 @@ import gwr/execution/runtime
 import gwr/execution/trap
 import gwr/parser/binary_parser
 import gwr/parser/byte_reader
+import gwr/parser/parsing_error
 import gwr/syntax/module
 
 pub type WebAssemblyInstance
@@ -19,15 +19,16 @@ pub type WebAssemblyInstance
     )
 }
 
-pub fn create(from data: BitArray) -> Result(WebAssemblyInstance, String)
+pub fn load(from data: BitArray) -> Result(binary.Binary, parsing_error.ParsingError)
 {
     use #(_, binary) <- result.try(binary_parser.parse_binary_module(byte_reader.create(from: data)))
-    let res = machine.initialize(binary.module)
-    case res
-    {
-        Ok(x) -> Ok(WebAssemblyInstance(binary: binary, machine: x))
-        Error(err) -> Error(string.inspect(err))
-    }
+    Ok(binary)
+}
+
+pub fn create(from binary: binary.Binary) -> Result(WebAssemblyInstance, String)
+{
+    use machine <- result.try(machine.initialize(binary.module))
+    Ok(WebAssemblyInstance(binary: binary, machine: machine))
 }
 
 pub fn call(instance: WebAssemblyInstance, name: String, arguments: List(runtime.Value)) -> Result(#(WebAssemblyInstance, List(runtime.Value)), trap.Trap)

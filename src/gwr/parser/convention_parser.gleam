@@ -4,14 +4,15 @@ import gleam/result
 import gleam/yielder
 
 import gwr/parser/byte_reader
+import gwr/parser/parsing_error
 import gwr/parser/value_parser
 
 import gwr/syntax/convention
 
 pub fn parse_vector(
     from reader: byte_reader.ByteReader,
-    with parse_element: fn(byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, a), String)
-) -> Result(#(byte_reader.ByteReader, convention.Vector(a)), String)
+    with parse_element: fn(byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, a), parsing_error.ParsingError)
+) -> Result(#(byte_reader.ByteReader, convention.Vector(a)), parsing_error.ParsingError)
 {
     use #(reader, vector_length) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
 

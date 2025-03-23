@@ -10,39 +10,42 @@ import gwr/binary
 import gwr/parser/convention_parser
 import gwr/parser/instruction_parser
 import gwr/parser/module_parser
+import gwr/parser/parsing_error
 import gwr/parser/types_parser
 import gwr/parser/value_parser
 import gwr/parser/byte_reader
 import gwr/syntax/module
 
-pub fn parse_locals_declaration(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.LocalsDeclaration), String)
+pub fn parse_locals_declaration(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.LocalsDeclaration), parsing_error.ParsingError)
 {
     use #(reader, count) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
     use #(reader, value_type) <- result.try(types_parser.parse_value_type(from: reader))
     Ok(#(reader, binary.LocalsDeclaration(count: count, type_: value_type)))
 }
 
-pub fn parse_function_code(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.FunctionCode), String)
+pub fn parse_function_code(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.FunctionCode), parsing_error.ParsingError)
 {
     use #(reader, locals_declaration) <- result.try(convention_parser.parse_vector(from: reader, with: parse_locals_declaration))
     use #(reader, expression) <- result.try(instruction_parser.parse_expression(from: reader))
     Ok(#(reader, binary.FunctionCode(locals: locals_declaration, body: expression)))
 }
 
-pub fn parse_code(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.Code), String)
+pub fn parse_code(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.Code), parsing_error.ParsingError)
 {
     use #(reader, size) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
     use #(reader, function_code) <- result.try(parse_function_code(from: reader))
     Ok(#(reader, binary.Code(size: size, function_code: function_code)))
 }
 
-pub fn parse_section(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.Section), String)
+pub fn parse_section(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.Section), parsing_error.ParsingError)
 {
     use #(reader, section_type_id)  <- result.try(
         case byte_reader.read(from: reader, take: 1)
         {
             Ok(#(reader, <<section_type_id>>)) -> Ok(#(reader, section_type_id))
-            _ -> Error("gwr/parser/binary_parser.parse_section: can't get section type id raw data")
+            _ -> parsing_error.new()
+                 |> parsing_error.add_message("gwr/parser/binary_parser.parse_section: can't get section type id raw data")
+                 |> parsing_error.to_error()
         }
     )
 
@@ -53,7 +56,9 @@ pub fn parse_section(from reader: byte_reader.ByteReader) -> Result(#(byte_reade
 
     use <- bool.guard(
         when: section_length > remaining_data_length,
-        return: Error("gwr/parser/binary_parser.parse_section: unexpected end of the section's content segment. Expected " <> int.to_string(section_length) <> " bytes but got " <> int.to_string(remaining_data_length) <> " bytes")
+        return: parsing_error.new()
+                |> parsing_error.add_message("gwr/parser/binary_parser.parse_section: unexpected end of the section's content segment. Expected " <> int.to_string(section_length) <> " bytes but got " <> int.to_string(remaining_data_length) <> " bytes")
+                |> parsing_error.to_error()
     )
 
     use #(reader, decoded_dection) <- result.try(
@@ -118,15 +123,21 @@ pub fn parse_section(from reader: byte_reader.ByteReader) -> Result(#(byte_reade
             // @TODO False, id if id == start_section_id -> {}
             // @TODO False, id if id == element_section_id -> {}
             False, id if id == binary.code_section_id -> Ok(#(reader, binary.Section(id: binary.code_section_id, length: section_length, content: None)))
-            _, _ -> Error("gwr/parser/binary_parser.parse_section: unknown section type id \"" <> int.to_string(section_type_id) <> "\"")
+            _, _ -> parsing_error.new()
+                    |> parsing_error.add_message("gwr/parser/binary_parser.parse_section: unknown section type id \"" <> int.to_string(section_type_id) <> "\"")
+                    |> parsing_error.to_error()
         }
     )
     Ok(#(reader, decoded_dection))
 }
 
-pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.Binary), String)
+pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, binary.Binary), parsing_error.ParsingError)
 {
-    use <- bool.guard(when: byte_reader.is_empty(reader), return: Error("gwr/parser/binary_parser.parse_binary_module: empty data"))
+    use <- bool.guard(when: byte_reader.is_empty(reader), return:
+        parsing_error.new()
+        |> parsing_error.add_message("gwr/parser/binary_parser.parse_binary_module: empty data")
+        |> parsing_error.to_error()
+    )
     
     // https://webassembly.github.io/spec/core/binary/module.html#binary-module
     // 
@@ -140,7 +151,11 @@ pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte
         Error(_) -> #(reader, False)
     }
 
-    use <- bool.guard(when: !found_magic_number, return: Error("gwr/parser/binary_parser.parse_binary_module: couldn't find module's magic number"))
+    use <- bool.guard(when: !found_magic_number, return:
+        parsing_error.new()
+        |> parsing_error.add_message("gwr/parser/binary_parser.parse_binary_module: couldn't find module's magic number")
+        |> parsing_error.to_error()
+    )
 
     // @TODO: I couldn't figure out the version number binary encoding from the spec (LE32 or LEB128 ?),
     // therefore the code below may be fixed.
@@ -148,7 +163,9 @@ pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte
         case byte_reader.read(from: reader, take: 4)
         {
             Ok(#(reader, <<version:unsigned-little-size(32)>>)) -> Ok(#(reader, version))
-            _ -> Error("gwr/parser/binary_parser.parse_binary_module: couldn't find module version")
+            _ -> parsing_error.new()
+                 |> parsing_error.add_message("gwr/parser/binary_parser.parse_binary_module: couldn't find module version")
+                 |> parsing_error.to_error()
         }
     )
 
@@ -240,7 +257,9 @@ pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte
                                                         )
                                                         Ok(list.append(function_list, [function]))
                                                     }
-                                                    Error(_) -> Error("gwr/parser/binary_parser.parse_binary_module: couldn't find type index " <> int.to_string(index))
+                                                    Error(_) -> parsing_error.new()
+                                                                |> parsing_error.add_message("gwr/parser/binary_parser.parse_binary_module: couldn't find type index " <> int.to_string(index))
+                                                                |> parsing_error.to_error()
                                                 }
                                             }
                                         )

@@ -18,6 +18,8 @@ pub fn rust_fib_test()
 {
     simplifile.read_bits(from: build_path <> "fib.wasm")
     |> should.be_ok
+    |> gwr.load()
+    |> should.be_ok
     |> gwr.create()
     |> should.be_ok
     |> gwr.call("fib", [runtime.Integer32(12)])

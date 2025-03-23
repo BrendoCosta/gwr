@@ -2,20 +2,23 @@ import gleam/int
 import gleam/option.{None, Some}
 import gleam/result
 
-import gwr/parser/convention_parser
 import gwr/parser/byte_reader
+import gwr/parser/convention_parser
+import gwr/parser/parsing_error
 import gwr/parser/value_parser
 
 import gwr/syntax/types
 
-pub fn parse_value_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, types.ValueType), String)
+pub fn parse_value_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, types.ValueType), parsing_error.ParsingError)
 {
     use #(reader, value_type_id) <- result.try(
         case byte_reader.read(from: reader, take: 1)
         {
             Ok(#(reader, <<value_type_id>>)) -> Ok(#(reader, value_type_id))
-            Error(reason) -> Error("gwr/parser/types_parser.parse_value_type: couldn't read value type id: " <> reason)
-            _ -> Error("gwr/parser/types_parser.parse_value_type: unknown error reading value type id")
+            Error(reason) -> Error(reason)
+            _ -> parsing_error.new()
+                 |> parsing_error.add_message("gwr/parser/types_parser.parse_value_type: unknown error reading value type id")
+                 |> parsing_error.to_error()
         }
     )
     
@@ -29,7 +32,9 @@ pub fn parse_value_type(from reader: byte_reader.ByteReader) -> Result(#(byte_re
             0x7b -> Ok(types.Vector(types.Vector128))
             0x70 -> Ok(types.Reference(types.FunctionReference))
             0x6f -> Ok(types.Reference(types.ExternReference))
-            unknown -> Error("gwr/parser/types_parser.parse_value_type: unknown value type \"" <> int.to_string(unknown) <> "\"")
+            unknown -> parsing_error.new()
+                       |> parsing_error.add_message("gwr/parser/types_parser.parse_value_type: unknown value type \"" <> int.to_string(unknown) <> "\"")
+                       |> parsing_error.to_error()
         }
     )
 
@@ -45,7 +50,7 @@ pub fn is_value_type(data: BitArray) -> Bool
     }
 }
 
-pub fn parse_limits(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, types.Limits), String)
+pub fn parse_limits(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, types.Limits), parsing_error.ParsingError)
 {
     // From the spec: "limits are encoded with a preceding flag indicating whether a maximum is present."
     use #(reader, has_max) <- result.try(
@@ -53,9 +58,13 @@ pub fn parse_limits(from reader: byte_reader.ByteReader) -> Result(#(byte_reader
         {
             Ok(#(reader, <<0x00>>)) -> Ok(#(reader, False))
             Ok(#(reader, <<0x01>>)) -> Ok(#(reader, True))
-            Ok(#(_, <<unknown>>)) -> Error("gwr/parser/types_parser.parse_limits: unexpected flag value \"" <> int.to_string(unknown) <> "\"")
-            Error(reason) -> Error("gwr/parser/types_parser.parse_limits: couldn't read flag value: " <> reason)
-            _ -> Error("gwr/parser/types_parser.parse_limits: unknown error reading flag value")
+            Ok(#(_, <<unknown>>)) -> parsing_error.new()
+                                     |> parsing_error.add_message("gwr/parser/types_parser.parse_limits: unexpected flag value \"" <> int.to_string(unknown) <> "\"")
+                                     |> parsing_error.to_error()
+            Error(reason) -> Error(reason)
+            _ -> parsing_error.new()
+                 |> parsing_error.add_message("gwr/parser/types_parser.parse_limits: unknown error reading flag value")
+                 |> parsing_error.to_error()
         }
     )
 
@@ -79,7 +88,7 @@ pub fn parse_limits(from reader: byte_reader.ByteReader) -> Result(#(byte_reader
 /// and follows with 2 vectors, each containing an arbitrary amount of 1-byte ValueType(s).
 /// The first vector represents the list of parameter types of the function, while the second vector represents
 /// the list of result types returned by the function.
-pub fn parse_function_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, types.FunctionType), String)
+pub fn parse_function_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, types.FunctionType), parsing_error.ParsingError)
 {
     use #(reader, function_type) <- result.try(
         case byte_reader.read(from: reader, take: 1)
@@ -90,16 +99,20 @@ pub fn parse_function_type(from reader: byte_reader.ByteReader) -> Result(#(byte
                 use #(reader, results_vec) <- result.try(convention_parser.parse_vector(from: reader, with: parse_value_type))
                 Ok(#(reader, types.FunctionType(parameters: parameters_vec, results: results_vec)))
             }
-            Ok(#(_, <<unkown>>)) -> Error("gwr/parser/types_parser.parse_function_type: unexpected function type id \"" <> int.to_string(unkown) <> "\"")
-            Error(reason) -> Error("gwr/parser/types_parser.parse_function_type: couldn't read function type id: " <> reason)
-            _ -> Error("gwr/parser/types_parser.parse_function_type: unknown error reading function type id")
+            Ok(#(_, <<unkown>>)) -> parsing_error.new()
+                                    |> parsing_error.add_message("gwr/parser/types_parser.parse_function_type: unexpected function type id \"" <> int.to_string(unkown) <> "\"")
+                                    |> parsing_error.to_error()
+            Error(reason) -> Error(reason)
+            _ -> parsing_error.new()
+                 |> parsing_error.add_message("gwr/parser/types_parser.parse_function_type: unknown error reading function type id")
+                 |> parsing_error.to_error()
         }
     )
 
     Ok(#(reader, function_type))
 }
 
-pub fn parse_global_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, types.GlobalType), String)
+pub fn parse_global_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, types.GlobalType), parsing_error.ParsingError)
 {
     use #(reader, value_type) <- result.try(parse_value_type(from: reader))
     use #(reader, mutability) <- result.try(
@@ -107,9 +120,13 @@ pub fn parse_global_type(from reader: byte_reader.ByteReader) -> Result(#(byte_r
         {
             Ok(#(reader, <<0x00>>)) -> Ok(#(reader, types.Constant))
             Ok(#(reader, <<0x01>>)) -> Ok(#(reader, types.Variable))
-            Ok(#(_, <<unkown>>)) -> Error("gwr/parser/types_parser.parse_global_type: unexpected mutability flag value \"" <> int.to_string(unkown) <> "\"")
-            Error(reason) -> Error("gwr/parser/types_parser.parse_global_type: couldn't read mutability flag value: " <> reason)
-            _ -> Error("gwr/parser/types_parser.parse_global_type: unknown error reading mutability flag value")
+            Ok(#(_, <<unkown>>)) -> parsing_error.new()
+                                    |> parsing_error.add_message("gwr/parser/types_parser.parse_global_type: unexpected mutability flag value \"" <> int.to_string(unkown) <> "\"")
+                                    |> parsing_error.to_error()
+            Error(reason) -> Error(reason)
+            _ -> parsing_error.new()
+                 |> parsing_error.add_message("gwr/parser/types_parser.parse_global_type: unknown error reading mutability flag value")
+                 |> parsing_error.to_error()
         }
     )
     Ok(#(reader, types.GlobalType(value_type: value_type, mutability: mutability)))

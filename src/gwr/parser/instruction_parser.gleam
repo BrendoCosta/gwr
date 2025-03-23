@@ -6,19 +6,22 @@ import gleam/list
 import gleam/result
 import gleam/yielder
 
-import gwr/syntax/instruction
 import gwr/parser/byte_reader
+import gwr/parser/parsing_error
 import gwr/parser/types_parser
 import gwr/parser/value_parser
+import gwr/syntax/instruction
 
-pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.Instruction), String)
+pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.Instruction), parsing_error.ParsingError)
 {
     use #(reader, opcode) <- result.try(
         case byte_reader.read(from: reader, take: 1)
         {
             Ok(#(reader, <<opcode>>)) -> Ok(#(reader, opcode))
-            Error(reason) -> Error("gwr/parser/instruction_parser.parse_instruction: couldn't read opcode: " <> reason)
-            _ -> Error("gwr/parser/instruction_parser.parse_instruction: unknown error reading opcode")
+            Error(reason) -> Error(reason)
+            _ -> parsing_error.new()
+                 |> parsing_error.add_message("gwr/parser/instruction_parser.parse_instruction: unknown error reading opcode")
+                 |> parsing_error.to_error()
         }
     )
     
@@ -60,7 +63,9 @@ pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_r
                 {
                     Ok(instruction.End) -> Ok(#(reader, instruction.If(block_type: block_type, instructions: body, else_: option.None)))
                     Ok(instruction.Else(_) as els) -> Ok(#(reader, instruction.If(block_type: block_type, instructions: list.take(from: body, up_to: list.length(body) - 1), else_: option.Some(els))))
-                    _ -> Error("gwr/parser/instruction_parser.parse_instruction: expected the If instruction's block to end either with an End instruction or an Else instruction")
+                    _ -> parsing_error.new()
+                         |> parsing_error.add_message("gwr/parser/instruction_parser.parse_instruction: expected the If instruction's block to end either with an End instruction or an Else instruction")
+                         |> parsing_error.to_error()
                 }
             }
             0x05 ->
@@ -259,20 +264,24 @@ pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_r
                     0x05 -> Ok(#(reader, instruction.I64TruncSatF32U))
                     0x06 -> Ok(#(reader, instruction.I64TruncSatF64S))
                     0x07 -> Ok(#(reader, instruction.I64TruncSatF64U))
-                    unknown -> Error("gwr/parser/instruction_parser.parse_instruction: unknown saturating truncation instruction opcode \"0x" <> int.to_base16(unknown) <> "\"")
+                    unknown -> parsing_error.new()
+                               |> parsing_error.add_message("gwr/parser/instruction_parser.parse_instruction: unknown saturating truncation instruction opcode \"0x" <> int.to_base16(unknown) <> "\"")
+                               |> parsing_error.to_error()
                 }
             }
             // End
             // https://webassembly.github.io/spec/core/binary/instructions.html#expressions
             0x0b -> Ok(#(reader, instruction.End))
-            unknown -> Error("gwr/parser/instruction_parser.parse_instruction: unknown opcode \"0x" <> int.to_base16(unknown) <> "\"")
+            unknown -> parsing_error.new()
+                       |> parsing_error.add_message("gwr/parser/instruction_parser.parse_instruction: unknown opcode \"0x" <> int.to_base16(unknown) <> "\"")
+                       |> parsing_error.to_error()
         }
     )
 
     Ok(#(reader, instruction))
 }
 
-pub fn parse_expression(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.Expression), String)
+pub fn parse_expression(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.Expression), parsing_error.ParsingError)
 {
     use data <- result.try(byte_reader.get_remaining(from: reader))
     let data_length = bit_array.byte_size(data)
@@ -289,7 +298,11 @@ pub fn parse_expression(from reader: byte_reader.ByteReader) -> Result(#(byte_re
                 use <- bool.guard(when: list.last(current_expression) == Ok(instruction.End), return: state)
                 
                 // If we reached the end of the data then the last instruction there must be an End instruction; otherwise we got an error 
-                use <- bool.guard(when: !byte_reader.can_read(reader) && list.last(current_expression) != Ok(instruction.End), return: Error("gwr/parser/instruction_parser.parse_expression: an expression must terminate with a End instruction"))
+                use <- bool.guard(when: !byte_reader.can_read(reader) && list.last(current_expression) != Ok(instruction.End), return:
+                    parsing_error.new()
+                    |> parsing_error.add_message("gwr/parser/instruction_parser.parse_expression: an expression must terminate with a End instruction")
+                    |> parsing_error.to_error()
+                )
 
                 use #(reader, instruction) <- result.try(parse_instruction(from: reader))
 
@@ -301,7 +314,7 @@ pub fn parse_expression(from reader: byte_reader.ByteReader) -> Result(#(byte_re
     Ok(#(reader, expression))
 }
 
-pub fn do_parse_instructions_until(reader: byte_reader.ByteReader, predicate: fn (instruction.Instruction) -> Bool, accumulator: List(instruction.Instruction)) -> Result(#(byte_reader.ByteReader, List(instruction.Instruction)), String)
+pub fn do_parse_instructions_until(reader: byte_reader.ByteReader, predicate: fn (instruction.Instruction) -> Bool, accumulator: List(instruction.Instruction)) -> Result(#(byte_reader.ByteReader, List(instruction.Instruction)), parsing_error.ParsingError)
 {
     case byte_reader.can_read(reader)
     {
@@ -314,16 +327,18 @@ pub fn do_parse_instructions_until(reader: byte_reader.ByteReader, predicate: fn
                 False -> do_parse_instructions_until(reader, predicate, list.append(accumulator, [instruction]))
             }
         }
-        False -> Error("gwr/parser/instruction_parser.do_parse_instructions_until: reached the end of the data yet couldn't find the instruction matching the given predicate")
+        False -> parsing_error.new()
+                 |> parsing_error.add_message("gwr/parser/instruction_parser.do_parse_instructions_until: reached the end of the data yet couldn't find the instruction matching the given predicate")
+                 |> parsing_error.to_error()
     }
 }
 
-pub fn parse_instructions_until(from reader: byte_reader.ByteReader, with predicate: fn (instruction.Instruction) -> Bool) -> Result(#(byte_reader.ByteReader, List(instruction.Instruction)), String)
+pub fn parse_instructions_until(from reader: byte_reader.ByteReader, with predicate: fn (instruction.Instruction) -> Bool) -> Result(#(byte_reader.ByteReader, List(instruction.Instruction)), parsing_error.ParsingError)
 {
     do_parse_instructions_until(reader, predicate, [])
 }
 
-pub fn parse_block_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.BlockType), String)
+pub fn parse_block_type(from reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, instruction.BlockType), parsing_error.ParsingError)
 {
     // A structured instruction can consume input and produce output on the operand stack
     // according to its annotated block type. It is given either as a type index that refers

@@ -4,6 +4,7 @@ import gleam/list
 import gleam/result
 
 import gwr/parser/byte_reader
+import gwr/parser/parsing_error
 
 pub type SExpr
 {
@@ -11,7 +12,7 @@ pub type SExpr
     Expression(List(SExpr))
 }
 
-pub fn parse(input: String) -> Result(List(SExpr), String)
+pub fn parse(input: String) -> Result(List(SExpr), parsing_error.ParsingError)
 {
     use #(_, res) <- result.try(do_parse(byte_reader.create(from: bit_array.from_string(input)), []))
     Ok(res)
@@ -19,11 +20,17 @@ pub fn parse(input: String) -> Result(List(SExpr), String)
 
 // Important:
 // In this function the stack grows to the left
-pub fn do_parse(reader: byte_reader.ByteReader, stack_accumulator: List(SExpr)) -> Result(#(byte_reader.ByteReader, List(SExpr)), String)
+pub fn do_parse(reader: byte_reader.ByteReader, stack_accumulator: List(SExpr)) -> Result(#(byte_reader.ByteReader, List(SExpr)), parsing_error.ParsingError)
 {
     use <- bool.guard(when: !byte_reader.can_read(reader), return: Ok(#(reader, stack_accumulator)))
     use next_data <- result.try(byte_reader.peek(reader))
-    use next_character <- result.try(bit_array.to_string(next_data) |> result.replace_error("Couldn't convert the character to String"))
+    use next_character <- result.try(
+        bit_array.to_string(next_data)
+        |> result.replace_error(
+            parsing_error.new()
+            |> parsing_error.add_message("Couldn't convert the character to String")
+        )
+    )
     case next_character
     {
         "(" -> do_parse(byte_reader.advance(reader, 1), stack_accumulator |> list.prepend(Expression([]))) // Push an empty expression to the stack
@@ -45,7 +52,7 @@ pub fn do_parse(reader: byte_reader.ByteReader, stack_accumulator: List(SExpr)) 
     }
 }
 
-fn parse_atom(reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, SExpr), String)
+fn parse_atom(reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader, SExpr), parsing_error.ParsingError)
 {
     use #(reader, data) <- result.try(byte_reader.read_while(from: reader, with: fn (data) {
         case bit_array.to_string(data)
@@ -54,6 +61,12 @@ fn parse_atom(reader: byte_reader.ByteReader) -> Result(#(byte_reader.ByteReader
             _ -> True
         }
     }))
-    use atom <- result.try(bit_array.to_string(data) |> result.replace_error("Couldn't convert the Atom characters to String"))
+    use atom <- result.try(
+        bit_array.to_string(data)
+        |> result.replace_error(
+            parsing_error.new()
+            |> parsing_error.add_message("Couldn't convert the Atom characters to String")
+        )
+    )
     Ok(#(reader, Atom(atom)))
 }
