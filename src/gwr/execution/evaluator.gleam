@@ -370,6 +370,21 @@ pub fn evaluate_ige_s(stack: stack.Stack, type_: types.NumberType) -> Result(sta
     comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ige_s(get_bitwidth(t), a, b)) }))
 }
 
+pub fn evaluate_iextend8_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+{
+    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { numerics.iextend8_s(get_bitwidth(t), a) }))
+}
+
+pub fn evaluate_iextend16_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+{
+    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { numerics.iextend16_s(get_bitwidth(t), a) }))
+}
+
+pub fn evaluate_iextend32_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+{
+    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { numerics.iextend32_s(get_bitwidth(t), a) }))
+}
+
 pub fn evaluate_local_get(stack: stack.Stack, index: index.LocalIndex) -> Result(stack.Stack, trap.Trap)
 {
     // 1. Let F be the current frame.
@@ -879,6 +894,11 @@ pub fn evaluate_expression(stack: stack.Stack, store: store.Store, instructions:
                             instruction.I64GeU -> evaluate_ige_u(stack, types.Integer64)
                             instruction.I32GeS -> evaluate_ige_s(stack, types.Integer32)
                             instruction.I64GeS -> evaluate_ige_s(stack, types.Integer64)
+                            instruction.I32Extend8S -> evaluate_iextend8_s(stack, types.Integer32)
+                            instruction.I64Extend8S -> evaluate_iextend8_s(stack, types.Integer64)
+                            instruction.I32Extend16S -> evaluate_iextend16_s(stack, types.Integer32)
+                            instruction.I64Extend16S -> evaluate_iextend16_s(stack, types.Integer64)
+                            instruction.I64Extend32S -> evaluate_iextend32_s(stack, types.Integer64)
                             unknown -> trap.make(trap.BadArgument)
                                        |> trap.add_message("gwr/execution/evaluator.evaluate_expression: attempt to execute an unknown or unimplemented instruction \"" <> string.inspect(unknown) <> "\"")
                                        |> trap.to_error()

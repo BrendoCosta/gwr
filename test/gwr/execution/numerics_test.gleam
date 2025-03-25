@@ -787,3 +787,43 @@ pub fn ige_s___i32___test()
         |> should.equal(expected)
     })
 }
+
+/// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L270
+pub fn iextend_s___8_i32___test()
+{
+    [
+        #(0, 0),
+        #(0x7f, 127),
+        #(0x80, -128),
+        #(0xff, -1),
+        #(0x012345_00, 0),
+        #(0xfedcba_80, -{0x80}),
+        #(-1, -1),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, expected) = test_case
+        numerics.iextend8_s(32, a)
+        |> should.be_ok
+        |> should.equal(numerics.unsigned(32, expected))
+    })
+}
+
+/// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L278
+pub fn iextend_s___16_i32___test()
+{
+    [
+        #(0, 0),
+        #(0x7fff, 32767),
+        #(0x8000, -32768),
+        #(0xffff, -1),
+        #(0x0123_0000, 0),
+        #(0xfedc_8000, -{0x8000}),
+        #(-1, -1),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, expected) = test_case
+        numerics.iextend16_s(32, a)
+        |> should.be_ok
+        |> should.equal(numerics.unsigned(32, expected))
+    })
+}

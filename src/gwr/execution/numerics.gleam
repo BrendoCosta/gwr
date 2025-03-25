@@ -548,7 +548,31 @@ pub fn ige_s(n: Int, i_1: Int, i_2: Int) -> Int
     bool_to_int(j_1 >= j_2)
 }
 
-// iextendM_s
+/// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-iextendn-s-mathrm-iextend-m-mathrm-s-n-i
+fn iextend_s(m: Int, n: Int, i: Int) -> Result(Int, trap.Trap)
+{
+    use j <- result.try(
+        int.modulo(i, two_power_n(m))
+        |> result.replace_error(trap.make(trap.BadArgument))
+    )
+    let j = signed(m, j)
+    Ok(unsigned(n, j))
+}
+
+pub fn iextend8_s(n: Int, i: Int) -> Result(Int, trap.Trap)
+{
+    iextend_s(8, n, i)
+}
+
+pub fn iextend16_s(n: Int, i: Int) -> Result(Int, trap.Trap)
+{
+    iextend_s(16, n, i)
+}
+
+pub fn iextend32_s(n: Int, i: Int) -> Result(Int, trap.Trap)
+{
+    iextend_s(32, n, i)
+}
 
 /// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ibitselect-mathrm-ibitselect-n-i-1-i-2-i-3
 pub fn ibitselect(i_1: Int, i_2: Int, i_3: Int) -> Int
