@@ -290,8 +290,15 @@ pub fn evaluate_ishr_s(stack: stack.Stack, type_: types.NumberType) -> Result(st
     binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.ishr_s(get_bitwidth(t), a, b) }))
 }
 
-// irotl
-// irotr
+pub fn evaluate_irotl(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+{
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.irotl(get_bitwidth(t), a, b) }))
+}
+
+pub fn evaluate_irotr(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+{
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.irotr(get_bitwidth(t), a, b) }))
+}
 
 pub fn evaluate_iclz(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
 {
@@ -840,8 +847,10 @@ pub fn evaluate_expression(stack: stack.Stack, store: store.Store, instructions:
                             instruction.I64ShrU -> evaluate_ishr_u(stack, types.Integer64)
                             instruction.I32ShrS -> evaluate_ishr_s(stack, types.Integer32)
                             instruction.I64ShrS -> evaluate_ishr_s(stack, types.Integer64)
-                            //instruction.I32Rotl
-                            //instruction.I32Rotr
+                            instruction.I32Rotl -> evaluate_irotl(stack, types.Integer32)
+                            instruction.I64Rotl -> evaluate_irotl(stack, types.Integer64)
+                            instruction.I32Rotr -> evaluate_irotr(stack, types.Integer32)
+                            instruction.I64Rotr -> evaluate_irotr(stack, types.Integer64)
                             instruction.I32Clz -> evaluate_iclz(stack, types.Integer32)
                             instruction.I64Clz -> evaluate_iclz(stack, types.Integer64)
                             instruction.I32Ctz -> evaluate_ictz(stack, types.Integer32)

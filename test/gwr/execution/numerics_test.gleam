@@ -398,6 +398,58 @@ pub fn ishr_s___i32___test()
     })
 }
 
+/// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L217
+pub fn irotl___i32___test()
+{
+    [
+        #(1, 1, 2),
+        #(1, 0, 1),
+        #(-1, 1, -1),
+        #(1, 32, 1),
+        #(0xabcd9876, 1, 0x579b30ed),
+        #(0xfe00dc00, 4, 0xe00dc00f),
+        #(0xb0c1d2e3, 5, 0x183a5c76),
+        #(0x00008000, 37, 0x00100000),
+        #(0xb0c1d2e3, 0xff05, 0x183a5c76),
+        #(0x769abcdf, 0xffffffed, 0x579beed3),
+        #(0x769abcdf, 0x8000000d, 0x579beed3),
+        #(1, 31, 0x80000000),
+        #(0x80000000, 1, 1),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.irotl(32, a, b)
+        |> should.be_ok
+        |> should.equal(numerics.unsigned(32, expected))
+    })
+}
+
+/// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L231C1-L243C84
+pub fn irotr___i32___test()
+{
+    [
+        #(1, 1, 0x80000000),
+        #(1, 0, 1),
+        #(-1, 1, -1),
+        #(1, 32, 1),
+        #(0xff00cc00, 1, 0x7f806600),
+        #(0x00080000, 4, 0x00008000),
+        #(0xb0c1d2e3, 5, 0x1d860e97),
+        #(0x00008000, 37, 0x00000400),
+        #(0xb0c1d2e3, 0xff05, 0x1d860e97),
+        #(0x769abcdf, 0xffffffed, 0xe6fbb4d5),
+        #(0x769abcdf, 0x8000000d, 0xe6fbb4d5),
+        #(1, 31, 2),
+        #(0x80000000, 31, 1),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.irotr(32, a, b)
+        |> should.be_ok
+        |> should.equal(numerics.unsigned(32, expected))
+    })
+}
+
 /// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L245C1-L252C68
 pub fn iclz___i32___test()
 {

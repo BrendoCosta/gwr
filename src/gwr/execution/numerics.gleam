@@ -226,8 +226,31 @@ pub fn ishr_s(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
     Ok(unsigned(n, int.bitwise_shift_right(i_1, k)))
 }
 
-// irotl
-// irotr
+pub fn irotl(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
+{
+    let i_1 = unsigned(n, i_1)
+    // Let k be i_2 modulo N.
+    use k <- result.try(
+        int.modulo(unsigned(n, i_2), n)
+        |> result.replace_error(trap.make(trap.DivisionByZero))
+    )
+    // Return the result of rotating i_1 left by k bits.
+    let res = int.bitwise_or(int.bitwise_shift_left(i_1, k), int.bitwise_shift_right(i_1, n - k))
+    Ok(unsigned(n, res))
+}
+
+pub fn irotr(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
+{
+    let i_1 = unsigned(n, i_1)
+    // Let k be i_2 modulo N.
+    use k <- result.try(
+        int.modulo(unsigned(n, i_2), n)
+        |> result.replace_error(trap.make(trap.DivisionByZero))
+    )
+    // Return the result of rotating i_1 right by k bits.
+    let res = int.bitwise_or(int.bitwise_shift_right(i_1, k), int.bitwise_shift_left(i_1, n - k))
+    Ok(unsigned(n, res))
+}
 
 fn iclz_32(i: Int) -> Int
 {
