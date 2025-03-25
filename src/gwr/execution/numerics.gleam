@@ -187,9 +187,45 @@ pub fn ixor(n: Int, i_1: Int, i_2: Int) -> Int
     int.bitwise_exclusive_or(i_1, i_2)
 }
 
-// ishl
-// ishr_u
-// ishr_s
+/// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ishl-mathrm-ishl-n-i-1-i-2
+pub fn ishl(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
+{
+    let i_1 = unsigned(n, i_1)
+    // Let k be i_2 modulo N.
+    use k <- result.try(
+        int.modulo(unsigned(n, i_2), n)
+        |> result.replace_error(trap.make(trap.DivisionByZero))
+    )
+    // Return the result of shifting i_1 left by k bits, modulo 2^N.
+    Ok(unsigned(n, int.bitwise_shift_left(i_1, k)))
+}
+
+/// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ishr-u-mathrm-ishr-u-n-i-1-i-2
+pub fn ishr_u(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
+{
+    let i_1 = unsigned(n, i_1)
+    // Let k be i_2 modulo N.
+    use k <- result.try(
+        int.modulo(unsigned(n, i_2), n)
+        |> result.replace_error(trap.make(trap.DivisionByZero))
+    )
+    // Return the result of shifting i_1 right by k bits, extended with 0 bits.
+    Ok(unsigned(n, int.bitwise_shift_right(i_1, k)))
+}
+
+/// https://webassembly.github.io/spec/core/exec/numerics.html?highlight=test#xref-exec-numerics-op-ishr-s-mathrm-ishr-s-n-i-1-i-2
+pub fn ishr_s(n: Int, i_1: Int, i_2: Int) -> Result(Int, trap.Trap)
+{
+    let i_1 = signed(n, i_1)
+    // Let k be i_2 modulo N.
+    use k <- result.try(
+        int.modulo(unsigned(n, i_2), n)
+        |> result.replace_error(trap.make(trap.DivisionByZero))
+    )
+    // Return the result of shifting i_1 right by k bits, extended with the most significant bit of the original value.
+    Ok(unsigned(n, int.bitwise_shift_right(i_1, k)))
+}
+
 // irotl
 // irotr
 

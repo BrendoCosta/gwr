@@ -314,6 +314,90 @@ pub fn ixor___i32___test()
     })
 }
 
+/// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L169C1-L179C91
+pub fn ishl___i32___test()
+{
+    [
+        #(1, 1, 2),
+        #(1, 0, 1),
+        #(0x7fffffff, 1, 0xfffffffe),
+        #(0xffffffff, 1, 0xfffffffe),
+        #(0x80000000, 1, 0),
+        #(0x40000000, 1, 0x80000000),
+        #(1, 31, 0x80000000),
+        #(1, 32, 1),
+        #(1, 33, 2),
+        #(1, -1, 0x80000000),
+        #(1, 0x7fffffff, 0x80000000),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.ishl(32, a, b)
+        |> should.be_ok
+        |> should.equal(expected)
+    })
+}
+
+/// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L199C1-L215C86
+pub fn ishr_u___i32___test()
+{
+    [
+        #(1, 1, 0),
+        #(1, 0, 1),
+        #(-1, 1, 0x7fffffff),
+        #(0x7fffffff, 1, 0x3fffffff),
+        #(0x80000000, 1, 0x40000000),
+        #(0x40000000, 1, 0x20000000),
+        #(1, 32, 1),
+        #(1, 33, 0),
+        #(1, -1, 0),
+        #(1, 0x7fffffff, 0),
+        #(1, 0x80000000, 1),
+        #(0x80000000, 31, 1),
+        #(-1, 32, -1),
+        #(-1, 33, 0x7fffffff),
+        #(-1, -1, 1),
+        #(-1, 0x7fffffff, 1),
+        #(-1, 0x80000000, -1),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.ishr_u(32, a, b)
+        |> should.be_ok
+        |> should.equal(numerics.unsigned(32, expected))
+    })
+}
+
+/// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L181
+pub fn ishr_s___i32___test()
+{
+    [
+        #(1, 1, 0),
+        #(1, 0, 1),
+        #(-1, 1, -1),
+        #(0x7fffffff, 1, 0x3fffffff),
+        #(0x80000000, 1, 0xc0000000),
+        #(0x40000000, 1, 0x20000000),
+        #(1, 32, 1),
+        #(1, 33, 0),
+        #(1, -1, 0),
+        #(1, 0x7fffffff, 0),
+        #(1, 0x80000000, 1),
+        #(0x80000000, 31, -1),
+        #(-1, 32, -1),
+        #(-1, 33, -1),
+        #(-1, -1, -1),
+        #(-1, 0x7fffffff, -1),
+        #(-1, 0x80000000, -1),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, b, expected) = test_case
+        numerics.ishr_s(32, a, b)
+        |> should.be_ok
+        |> should.equal(numerics.unsigned(32, expected))
+    })
+}
+
 /// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L245C1-L252C68
 pub fn iclz___i32___test()
 {
