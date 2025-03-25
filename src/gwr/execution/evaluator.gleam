@@ -275,9 +275,21 @@ pub fn evaluate_ixor(stack: stack.Stack, type_: types.NumberType) -> Result(stac
     binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(numerics.ixor(get_bitwidth(t), a, b)) }))
 }
 
-// ishl
-// ishr_u
-// ishr_s
+pub fn evaluate_ishl(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+{
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.ishl(get_bitwidth(t), a, b) }))
+}
+
+pub fn evaluate_ishr_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+{
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.ishr_u(get_bitwidth(t), a, b) }))
+}
+
+pub fn evaluate_ishr_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+{
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.ishr_s(get_bitwidth(t), a, b) }))
+}
+
 // irotl
 // irotr
 
@@ -822,9 +834,12 @@ pub fn evaluate_expression(stack: stack.Stack, store: store.Store, instructions:
                             instruction.I64Or -> evaluate_ior(stack, types.Integer64)
                             instruction.I32Xor -> evaluate_ixor(stack, types.Integer32)
                             instruction.I64Xor -> evaluate_ixor(stack, types.Integer64)
-                            //instruction.I32Shl
-                            //instruction.I32ShrS
-                            //instruction.I32ShrU
+                            instruction.I32Shl -> evaluate_ishl(stack, types.Integer32)
+                            instruction.I64Shl -> evaluate_ishl(stack, types.Integer64)
+                            instruction.I32ShrU -> evaluate_ishr_u(stack, types.Integer32)
+                            instruction.I64ShrU -> evaluate_ishr_u(stack, types.Integer64)
+                            instruction.I32ShrS -> evaluate_ishr_s(stack, types.Integer32)
+                            instruction.I64ShrS -> evaluate_ishr_s(stack, types.Integer64)
                             //instruction.I32Rotl
                             //instruction.I32Rotr
                             instruction.I32Clz -> evaluate_iclz(stack, types.Integer32)
