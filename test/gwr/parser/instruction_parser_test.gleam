@@ -163,6 +163,19 @@ pub fn parse_instruction___local_get___test()
     )
 }
 
+pub fn parse_instruction___local_tee___test()
+{
+    let reader = byte_reader.create(from: <<0x20, 0x80, 0x80, 0x04>>)
+    instruction_parser.parse_instruction(reader)
+    |> should.be_ok
+    |> should.equal(
+        #(
+            byte_reader.ByteReader(..reader, current_position: 4),
+            instruction.LocalGet(index: 65536)
+        )
+    )
+}
+
 pub fn parse_instruction___br___test()
 {
     let reader = byte_reader.create(from: <<0x0c, 0xff, 0x01>>)

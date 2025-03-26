@@ -101,6 +101,11 @@ pub fn parse_instruction(from reader: byte_reader.ByteReader) -> Result(#(byte_r
                 use #(reader, local_index) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
                 Ok(#(reader, instruction.LocalSet(index: local_index)))
             }
+            0x22 ->
+            {
+                use #(reader, local_index) <- result.try(value_parser.parse_unsigned_leb128_integer(from: reader))
+                Ok(#(reader, instruction.LocalTee(index: local_index)))
+            }
             // Numeric Instructions
             // https://webassembly.github.io/spec/core/binary/instructions.html#numeric-instructions
             0x41 ->

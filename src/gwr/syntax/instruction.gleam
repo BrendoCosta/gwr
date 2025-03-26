@@ -30,6 +30,7 @@ pub type Instruction
     /// https://webassembly.github.io/spec/core/binary/instructions.html#variable-instructions
     LocalGet(index: index.LocalIndex)
     LocalSet(index: index.LocalIndex)
+    LocalTee(index: index.LocalIndex)
 
     /// https://webassembly.github.io/spec/core/binary/instructions.html#numeric-instructions
     
