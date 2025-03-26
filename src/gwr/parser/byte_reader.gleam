@@ -4,7 +4,7 @@ import gleam/result
 
 import gwr/parser/parsing_error
 
-pub type ByteReader
+pub opaque type ByteReader
 {
     ByteReader
     (

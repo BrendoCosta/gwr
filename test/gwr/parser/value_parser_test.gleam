@@ -1,4 +1,6 @@
 import gleam/list
+import gleam/pair
+
 import gwr/parser/byte_reader
 import gwr/parser/value_parser
 
@@ -26,12 +28,8 @@ pub fn parse_le32_float_test()
         let reader = byte_reader.create(from: test_case.0)
         value_parser.parse_le32_float(reader)
         |> should.be_ok
-        |> should.equal(
-            #(
-                byte_reader.ByteReader(..reader, current_position: 4),
-                test_case.1
-            )
-        )
+        |> pair.second
+        |> should.equal(test_case.1)
     })
 }
 
@@ -49,12 +47,8 @@ pub fn parse_le64_float_test()
         let reader = byte_reader.create(from: test_case.0)
         value_parser.parse_le64_float(reader)
         |> should.be_ok
-        |> should.equal(
-            #(
-                byte_reader.ByteReader(..reader, current_position: 8),
-                test_case.1
-            )
-        )
+        |> pair.second
+        |> should.equal(test_case.1)
     })
 }
 
@@ -63,10 +57,6 @@ pub fn parse_name_test()
     let reader = byte_reader.create(from: <<0x09, "some_name":utf8>>)
     value_parser.parse_name(reader)
     |> should.be_ok
-    |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 10),
-            "some_name"
-        )
-    )
+    |> pair.second
+    |> should.equal("some_name")
 }

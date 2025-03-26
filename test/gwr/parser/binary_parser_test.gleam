@@ -1,4 +1,5 @@
 import gleam/option.{None, Some}
+import gleam/pair
 
 import gwr/binary
 import gwr/parser/binary_parser
@@ -21,26 +22,23 @@ pub fn parse_binary_module___empty_module___test()
     let reader = byte_reader.create(from: <<0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00>>)
     binary_parser.parse_binary_module(reader)
     |> should.be_ok
+    |> pair.second
     |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 8),
-            binary.Binary
+        binary.Binary(
+            version: 1,
+            length: 8,
+            module: module.Module
             (
-                version: 1,
-                length: 8,
-                module: module.Module
-                (
-                    types: [],
-                    functions: [],
-                    tables: [],
-                    memories: [],
-                    globals: [],
-                    elements: [],
-                    datas: [],
-                    start: None,
-                    imports: [],
-                    exports: []
-                )
+                types: [],
+                functions: [],
+                tables: [],
+                memories: [],
+                globals: [],
+                elements: [],
+                datas: [],
+                start: None,
+                imports: [],
+                exports: []
             )
         )
     )
@@ -71,26 +69,23 @@ pub fn parse_binary_module___basic_add___test()
     >>)
     binary_parser.parse_binary_module(reader)
     |> should.be_ok
+    |> pair.second
     |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 44),
-            binary.Binary
+        binary.Binary(
+            version: 1,
+            length: 44,
+            module: module.Module
             (
-                version: 1,
-                length: 44,
-                module: module.Module
-                (
-                    types: [types.FunctionType([types.Number(types.Integer32), types.Number(types.Integer32)], [types.Number(types.Integer32)])],
-                    functions: [module.Function(0, [], [instruction.LocalGet(0), instruction.LocalGet(1), instruction.I32Add, instruction.End])],
-                    tables: [],
-                    memories: [],
-                    globals: [],
-                    elements: [],
-                    datas: [],
-                    start: None,
-                    imports: [],
-                    exports: [module.Export("addTwo", module.FunctionExport(0))]
-                )
+                types: [types.FunctionType([types.Number(types.Integer32), types.Number(types.Integer32)], [types.Number(types.Integer32)])],
+                functions: [module.Function(0, [], [instruction.LocalGet(0), instruction.LocalGet(1), instruction.I32Add, instruction.End])],
+                tables: [],
+                memories: [],
+                globals: [],
+                elements: [],
+                datas: [],
+                start: None,
+                imports: [],
+                exports: [module.Export("addTwo", module.FunctionExport(0))]
             )
         )
     )
@@ -149,15 +144,12 @@ pub fn parse_section___no_content___test()
     >>)
     binary_parser.parse_section(reader)
     |> should.be_ok
+    |> pair.second
     |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 2),
-            binary.Section
-            (
-                id: binary.type_section_id,
-                length: 0,
-                content: None
-            )
+        binary.Section(
+            id: binary.type_section_id,
+            length: 0,
+            content: None
         )
     )
 }
@@ -188,20 +180,17 @@ pub fn parse_memory_section_test()
     >>)
     binary_parser.parse_section(reader)
     |> should.be_ok
+    |> pair.second
     |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 9),
-            binary.Section
-            (
-                id: binary.memory_section_id,
-                length: 7,
-                content: Some(binary.MemorySection(
-                    memories: [
-                        module.Memory(type_: types.Limits(min: 3, max: None)),
-                        module.Memory(type_: types.Limits(min: 32, max: Some(256)))
-                    ]
-                ))
-            )
+        binary.Section(
+            id: binary.memory_section_id,
+            length: 7,
+            content: Some(binary.MemorySection(
+                memories: [
+                    module.Memory(type_: types.Limits(min: 3, max: None)),
+                    module.Memory(type_: types.Limits(min: 32, max: Some(256)))
+                ]
+            ))
         )
     )
 }
@@ -219,22 +208,19 @@ pub fn parse_type_section_test()
     >>)
     binary_parser.parse_section(reader)
     |> should.be_ok
+    |> pair.second
     |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 25),
-            binary.Section
-            (
-                id: binary.type_section_id,
-                length: 23,
-                content: Some(binary.TypeSection(
-                    function_types: [
-                        types.FunctionType(parameters: [types.Number(types.Integer32), types.Number(types.Integer64)], results: []),
-                        types.FunctionType(parameters: [types.Number(types.Float32), types.Number(types.Float64)], results: [types.Vector(types.Vector128)]),
-                        types.FunctionType(parameters: [types.Reference(types.FunctionReference), types.Reference(types.ExternReference), types.Number(types.Integer32)], results: [types.Reference(types.ExternReference), types.Number(types.Integer64)]),
-                        types.FunctionType(parameters: [], results: [])
-                    ]
-                ))
-            )
+        binary.Section(
+            id: binary.type_section_id,
+            length: 23,
+            content: Some(binary.TypeSection(
+                function_types: [
+                    types.FunctionType(parameters: [types.Number(types.Integer32), types.Number(types.Integer64)], results: []),
+                    types.FunctionType(parameters: [types.Number(types.Float32), types.Number(types.Float64)], results: [types.Vector(types.Vector128)]),
+                    types.FunctionType(parameters: [types.Reference(types.FunctionReference), types.Reference(types.ExternReference), types.Number(types.Integer32)], results: [types.Reference(types.ExternReference), types.Number(types.Integer64)]),
+                    types.FunctionType(parameters: [], results: [])
+                ]
+            ))
         )
     )
 }
@@ -256,22 +242,19 @@ pub fn parse_export_section_test()
     >>)
     binary_parser.parse_section(reader)
     |> should.be_ok
+    |> pair.second
     |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 52),
-            binary.Section
-            (
-                id: binary.export_section_id,
-                length: 50,
-                content: Some(binary.ExportSection(
-                    exports: [
-                        module.Export(name: "my_function", descriptor: module.FunctionExport(index: 0)),
-                        module.Export(name: "my_table", descriptor: module.TableExport(index: 1)),
-                        module.Export(name: "my_memory", descriptor: module.MemoryExport(index: 2)),
-                        module.Export(name: "my_global", descriptor: module.GlobalExport(index: 3)),
-                    ]
-                ))
-            )
+        binary.Section(
+            id: binary.export_section_id,
+            length: 50,
+            content: Some(binary.ExportSection(
+                exports: [
+                    module.Export(name: "my_function", descriptor: module.FunctionExport(index: 0)),
+                    module.Export(name: "my_table", descriptor: module.TableExport(index: 1)),
+                    module.Export(name: "my_memory", descriptor: module.MemoryExport(index: 2)),
+                    module.Export(name: "my_global", descriptor: module.GlobalExport(index: 3)),
+                ]
+            ))
         )
     )
 }
@@ -291,17 +274,14 @@ pub fn parse_function_section_test()
     >>)
     binary_parser.parse_section(reader)
     |> should.be_ok
+    |> pair.second
     |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 15),
-            binary.Section
-            (
-                id: binary.function_section_id,
-                length: 13,
-                content: Some(binary.FunctionSection(
-                    type_indices: [1, 1, 2, 3, 2147483647, 624485]
-                ))
-            )
+        binary.Section(
+            id: binary.function_section_id,
+            length: 13,
+            content: Some(binary.FunctionSection(
+                type_indices: [1, 1, 2, 3, 2147483647, 624485]
+            ))
         )
     )
 }
@@ -323,31 +303,28 @@ pub fn parse_code_section_test()
     >>)
     binary_parser.parse_section(reader)
     |> should.be_ok
+    |> pair.second
     |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 14),
-            binary.Section
-            (
-                id: binary.code_section_id,
-                length: 12,
-                content: Some(binary.CodeSection(
-                    entries: [
-                        binary.Code(
-                            size: 10,
-                            function_code: binary.FunctionCode(
-                                locals: [binary.LocalsDeclaration(count: 2, type_: types.Number(types.Integer32))],
-                                body: [
-                                    instruction.LocalGet(index: 1),
-                                    instruction.LocalGet(index: 2),
-                                    instruction.I32Add,
-                                    instruction.NoOp,
-                                    instruction.End
-                                ]
-                            )
+        binary.Section(
+            id: binary.code_section_id,
+            length: 12,
+            content: Some(binary.CodeSection(
+                entries: [
+                    binary.Code(
+                        size: 10,
+                        function_code: binary.FunctionCode(
+                            locals: [binary.LocalsDeclaration(count: 2, type_: types.Number(types.Integer32))],
+                            body: [
+                                instruction.LocalGet(index: 1),
+                                instruction.LocalGet(index: 2),
+                                instruction.I32Add,
+                                instruction.NoOp,
+                                instruction.End
+                            ]
                         )
-                    ]
-                ))
-            )
+                    )
+                ]
+            ))
         )
     )
 }
@@ -366,21 +343,19 @@ pub fn parse_code_test()
     >>)
     binary_parser.parse_code(reader)
     |> should.be_ok
+    |> pair.second
     |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 11),
-            binary.Code(
-                size: 10,
-                function_code: binary.FunctionCode(
-                    locals: [binary.LocalsDeclaration(count: 2, type_: types.Number(types.Integer32))],
-                    body: [
-                        instruction.LocalGet(index: 1),
-                        instruction.LocalGet(index: 2),
-                        instruction.I32Add,
-                        instruction.NoOp,
-                        instruction.End
-                    ]
-                )
+        binary.Code(
+            size: 10,
+            function_code: binary.FunctionCode(
+                locals: [binary.LocalsDeclaration(count: 2, type_: types.Number(types.Integer32))],
+                body: [
+                    instruction.LocalGet(index: 1),
+                    instruction.LocalGet(index: 2),
+                    instruction.I32Add,
+                    instruction.NoOp,
+                    instruction.End
+                ]
             )
         )
     )
@@ -391,12 +366,8 @@ pub fn parse_locals_declaration___3_integer32___test()
     let reader = byte_reader.create(from: <<0x03, 0x7f>>)
     binary_parser.parse_locals_declaration(reader)
     |> should.be_ok
-    |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 2),
-            binary.LocalsDeclaration(count: 3, type_: types.Number(types.Integer32))
-        )
-    )
+    |> pair.second
+    |> should.equal(binary.LocalsDeclaration(count: 3, type_: types.Number(types.Integer32)))
 }
 
 pub fn parse_locals_declaration___2_integer64___test()
@@ -404,12 +375,8 @@ pub fn parse_locals_declaration___2_integer64___test()
     let reader = byte_reader.create(from: <<0x02, 0x7e>>)
     binary_parser.parse_locals_declaration(reader)
     |> should.be_ok
-    |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 2),
-            binary.LocalsDeclaration(count: 2, type_: types.Number(types.Integer64))
-        )
-    )
+    |> pair.second
+    |> should.equal(binary.LocalsDeclaration(count: 2, type_: types.Number(types.Integer64)))
 }
 
 pub fn parse_locals_declaration___128_float32___test()
@@ -417,12 +384,8 @@ pub fn parse_locals_declaration___128_float32___test()
     let reader = byte_reader.create(from: <<0x80, 0x01, 0x7d>>)
     binary_parser.parse_locals_declaration(reader)
     |> should.be_ok
-    |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 3),
-            binary.LocalsDeclaration(count: 128, type_: types.Number(types.Float32))
-        )
-    )
+    |> pair.second
+    |> should.equal(binary.LocalsDeclaration(count: 128, type_: types.Number(types.Float32)))
 }
 
 pub fn parse_locals_declaration___123456_float64___test()
@@ -430,12 +393,8 @@ pub fn parse_locals_declaration___123456_float64___test()
     let reader = byte_reader.create(from: <<0xc0, 0xc4, 0x07, 0x7c>>)
     binary_parser.parse_locals_declaration(reader)
     |> should.be_ok
-    |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 4),
-            binary.LocalsDeclaration(count: 123456, type_: types.Number(types.Float64))
-        )
-    )
+    |> pair.second
+    |> should.equal(binary.LocalsDeclaration(count: 123456, type_: types.Number(types.Float64)))
 }
 
 pub fn parse_locals_declaration___255_vector128___test()
@@ -443,12 +402,8 @@ pub fn parse_locals_declaration___255_vector128___test()
     let reader = byte_reader.create(from: <<0xff, 0x01, 0x7b>>)
     binary_parser.parse_locals_declaration(reader)
     |> should.be_ok
-    |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 3),
-            binary.LocalsDeclaration(count: 255, type_: types.Vector(types.Vector128))
-        )
-    )
+    |> pair.second
+    |> should.equal(binary.LocalsDeclaration(count: 255, type_: types.Vector(types.Vector128)))
 }
 
 pub fn parse_locals_declaration___2_function_reference___test()
@@ -456,12 +411,8 @@ pub fn parse_locals_declaration___2_function_reference___test()
     let reader = byte_reader.create(from: <<0x02, 0x70>>)
     binary_parser.parse_locals_declaration(reader)
     |> should.be_ok
-    |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 2),
-            binary.LocalsDeclaration(count: 2, type_: types.Reference(types.FunctionReference))
-        )
-    )
+    |> pair.second
+    |> should.equal(binary.LocalsDeclaration(count: 2, type_: types.Reference(types.FunctionReference)))
 }
 
 pub fn parse_locals_declaration___1_extern_reference___test()
@@ -469,12 +420,8 @@ pub fn parse_locals_declaration___1_extern_reference___test()
     let reader = byte_reader.create(from: <<0x01, 0x6f>>)
     binary_parser.parse_locals_declaration(reader)
     |> should.be_ok
-    |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 2),
-            binary.LocalsDeclaration(count: 1, type_: types.Reference(types.ExternReference))
-        )
-    )
+    |> pair.second
+    |> should.equal(binary.LocalsDeclaration(count: 1, type_: types.Reference(types.ExternReference)))
 }
 
 pub fn parse_function_code_test()
@@ -496,25 +443,23 @@ pub fn parse_function_code_test()
     >>)
     binary_parser.parse_function_code(reader)
     |> should.be_ok
+    |> pair.second
     |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 22),
-            binary.FunctionCode(
-                locals: [
-                    binary.LocalsDeclaration(count: 3, type_: types.Number(types.Integer32)),
-                    binary.LocalsDeclaration(count: 2, type_: types.Number(types.Integer64)),
-                    binary.LocalsDeclaration(count: 128, type_: types.Number(types.Float32)),
-                    binary.LocalsDeclaration(count: 123456, type_: types.Number(types.Float64)),
-                    binary.LocalsDeclaration(count: 255, type_: types.Vector(types.Vector128)),
-                    binary.LocalsDeclaration(count: 2, type_: types.Reference(types.FunctionReference)),
-                    binary.LocalsDeclaration(count: 1, type_: types.Reference(types.ExternReference)),
-                ],
-                body: [
-                    instruction.NoOp,
-                    instruction.NoOp,
-                    instruction.End
-                ]
-            )
+        binary.FunctionCode(
+            locals: [
+                binary.LocalsDeclaration(count: 3, type_: types.Number(types.Integer32)),
+                binary.LocalsDeclaration(count: 2, type_: types.Number(types.Integer64)),
+                binary.LocalsDeclaration(count: 128, type_: types.Number(types.Float32)),
+                binary.LocalsDeclaration(count: 123456, type_: types.Number(types.Float64)),
+                binary.LocalsDeclaration(count: 255, type_: types.Vector(types.Vector128)),
+                binary.LocalsDeclaration(count: 2, type_: types.Reference(types.FunctionReference)),
+                binary.LocalsDeclaration(count: 1, type_: types.Reference(types.ExternReference)),
+            ],
+            body: [
+                instruction.NoOp,
+                instruction.NoOp,
+                instruction.End
+            ]
         )
     )
 }

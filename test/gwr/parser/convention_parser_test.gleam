@@ -1,4 +1,5 @@
 import gleam/bit_array
+import gleam/pair
 
 import gwr/parser/convention_parser
 import gwr/parser/byte_reader
@@ -19,10 +20,6 @@ pub fn parse_vector___bytes___test()
         Ok(#(reader, bit_array.to_string(string_data)))
     })
     |> should.be_ok
-    |> should.equal(
-        #(
-            byte_reader.ByteReader(..reader, current_position: 13),
-            [Ok("Hello World!")]
-        )
-    )
+    |> pair.second
+    |> should.equal([Ok("Hello World!")])
 }
