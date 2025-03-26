@@ -429,6 +429,26 @@ pub fn evaluate_local_set(stack: stack.Stack, index: index.LocalIndex) -> Result
     Ok(stack)
 }
 
+pub fn evaluate_local_tee(stack: stack.Stack, index: index.LocalIndex) -> Result(stack.Stack, trap.Trap)
+{
+    // 1. Assert: due to validation, a value is on the top of the stack.
+    // 2. Pop the value val from the stack.
+    case stack.pop(from: stack)
+    {
+        #(stack, option.Some(stack.ValueEntry(val))) ->
+        {
+            // 3. Push the value val to the stack.
+            // 4. Push the value val to the stack.
+            let stack = stack.push(to: stack, push: [stack.ValueEntry(val), stack.ValueEntry(val)])
+            // 5. Execute the instruction {\mathsf{local.set}}~x.
+            evaluate_local_set(stack, index)
+        }
+        _ -> trap.make(trap.InvalidState)
+             |> trap.add_message("gwr/execution/evaluator.evaluate_local_tee: expected a value on the top of the stack")
+             |> trap.to_error()
+    }
+}
+
 fn get_default_value_for_type(type_: types.ValueType) -> runtime.Value
 {
     case type_
@@ -831,6 +851,7 @@ pub fn evaluate_expression(stack: stack.Stack, store: store.Store, instructions:
                             // Variable Instructions
                             instruction.LocalGet(index) -> evaluate_local_get(stack, index)
                             instruction.LocalSet(index) -> evaluate_local_set(stack, index)
+                            instruction.LocalTee(index) -> evaluate_local_tee(stack, index)
                             // Table Instructions
                             // Memory Instructions
                             // Numeric Instructions

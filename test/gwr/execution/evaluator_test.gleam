@@ -149,6 +149,56 @@ pub fn evaluate_local_set_test()
     )
 }
 
+pub fn evaluate_local_tee_test()
+{
+    stack.create()
+    |> stack.push([
+        stack.ActivationEntry(
+            runtime.Frame(
+                arity: 0,
+                framestate: runtime.FrameState(
+                    module_instance: create_empty_module_instance(),
+                    locals: dict.from_list([
+                        #(0, runtime.Integer32(0)),
+                        #(1, runtime.Integer32(2)),
+                        #(2, runtime.Integer32(4)),
+                        #(3, runtime.Integer32(8)),
+                        #(4, runtime.Integer32(16)),
+                        #(5, runtime.Integer32(32)),
+                        #(6, runtime.Integer32(64)),
+                    ])
+                )
+            )
+        ),
+        stack.ValueEntry(runtime.Integer32(128))
+    ])
+    |> evaluator.evaluate_local_tee(5)
+    |> should.be_ok
+    |> should.equal(
+        stack.create()
+        |> stack.push([
+            stack.ActivationEntry(
+                runtime.Frame(
+                    arity: 0,
+                    framestate: runtime.FrameState(
+                        module_instance: create_empty_module_instance(),
+                        locals: dict.from_list([
+                            #(0, runtime.Integer32(0)),
+                            #(1, runtime.Integer32(2)),
+                            #(2, runtime.Integer32(4)),
+                            #(3, runtime.Integer32(8)),
+                            #(4, runtime.Integer32(16)),
+                            #(5, runtime.Integer32(128)),
+                            #(6, runtime.Integer32(64)),
+                        ])
+                    )
+                )
+            ),
+            stack.ValueEntry(runtime.Integer32(128))
+        ])
+    )
+}
+
 // A function call return should be flagged with an "Return" jump
 pub fn evaluate_return___return_flag___test()
 {
