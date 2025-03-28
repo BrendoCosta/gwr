@@ -789,7 +789,7 @@ pub fn ige_s___i32___test()
 }
 
 /// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L270
-pub fn iextend_s___8_i32___test()
+pub fn iextend8_s___i32___test()
 {
     [
         #(0, 0),
@@ -809,7 +809,7 @@ pub fn iextend_s___8_i32___test()
 }
 
 /// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i32.wast#L278
-pub fn iextend_s___16_i32___test()
+pub fn iextend16_s___i32___test()
 {
     [
         #(0, 0),
@@ -829,7 +829,7 @@ pub fn iextend_s___16_i32___test()
 }
 
 /// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i64.wast#L287C1-L296C68
-pub fn iextend_s___32_i64___test()
+pub fn iextend32_s___i64___test()
 {
     [
         #(0, 0),
