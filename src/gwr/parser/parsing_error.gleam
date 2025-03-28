@@ -6,17 +6,17 @@ import gwr/execution/debug
 
 pub opaque type ParsingError
 {
-    Trap(message: option.Option(String), stacktrace: List(debug.Stacktrace))
+    ParsingError(message: option.Option(String), stacktrace: List(debug.Stacktrace))
 }
 
 pub fn new() -> ParsingError
 {
-    Trap(message: option.None, stacktrace: debug.get_stacktrace() |> list.drop(2))
+    ParsingError(message: option.None, stacktrace: debug.get_stacktrace() |> list.drop(2))
 }
 
 pub fn add_message(error: ParsingError, message: String) -> ParsingError
 {
-    Trap(..error, message: option.Some(message)) 
+    ParsingError(..error, message: option.Some(message)) 
 }
 
 pub fn get_message(error: ParsingError) -> option.Option(String)
