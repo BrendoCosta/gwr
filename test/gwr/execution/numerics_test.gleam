@@ -827,3 +827,26 @@ pub fn iextend_s___16_i32___test()
         |> should.equal(numerics.unsigned(32, expected))
     })
 }
+
+/// https://github.com/WebAssembly/testsuite/blob/5504e41c6facedcbba1ff52a35b4c9ea99e6877d/i64.wast#L287C1-L296C68
+pub fn iextend_s___32_i64___test()
+{
+    [
+        #(0, 0),
+        #(0x7fff, 32767),
+        #(0x8000, 32768),
+        #(0xffff, 65535),
+        #(0x7fffffff, 0x7fffffff),
+        #(0x80000000, -{0x80000000}),
+        #(0xffffffff, -1),
+        #(0x01234567_00000000, 0),
+        #(0xfedcba98_80000000, -{0x80000000}),
+        #(-1, -1),
+    ]
+    |> list.each(fn (test_case) {
+        let #(a, expected) = test_case
+        numerics.iextend32_s(64, a)
+        |> should.be_ok
+        |> should.equal(numerics.unsigned(64, expected))
+    })
+}
