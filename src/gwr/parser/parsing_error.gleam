@@ -4,32 +4,32 @@ import gleam/string
 
 import gwr/debug
 
-pub opaque type ParsingError
-{
-    ParsingError(message: option.Option(String), stacktrace: List(debug.Stacktrace))
+pub opaque type ParsingError {
+  ParsingError(
+    message: option.Option(String),
+    stacktrace: List(debug.Stacktrace),
+  )
 }
 
-pub fn new() -> ParsingError
-{
-    ParsingError(message: option.None, stacktrace: debug.get_stacktrace() |> list.drop(2))
+pub fn new() -> ParsingError {
+  ParsingError(
+    message: option.None,
+    stacktrace: debug.get_stacktrace() |> list.drop(2),
+  )
 }
 
-pub fn add_message(error: ParsingError, message: String) -> ParsingError
-{
-    ParsingError(..error, message: option.Some(message)) 
+pub fn add_message(error: ParsingError, message: String) -> ParsingError {
+  ParsingError(..error, message: option.Some(message))
 }
 
-pub fn get_message(error: ParsingError) -> option.Option(String)
-{
-    error.message
+pub fn get_message(error: ParsingError) -> option.Option(String) {
+  error.message
 }
 
-pub fn to_error(error: ParsingError) -> Result(a, ParsingError)
-{
-    Error(error)
+pub fn to_error(error: ParsingError) -> Result(a, ParsingError) {
+  Error(error)
 }
 
-pub fn to_string(error: ParsingError) -> String
-{
-    string.inspect(error)
+pub fn to_string(error: ParsingError) -> String {
+  string.inspect(error)
 }

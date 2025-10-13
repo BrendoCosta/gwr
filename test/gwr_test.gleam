@@ -1,6 +1,5 @@
 import gleeunit
 
-pub fn main()
-{
-    gleeunit.main()
+pub fn main() {
+  gleeunit.main()
 }
