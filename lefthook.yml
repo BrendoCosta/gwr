@@ -1,0 +1,5 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: Check Gleam source code formatting
+      run: gleam format --check

@@ -2,9 +2,13 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/main/.schema/devbox.schema.json",
   "packages": [
     "gleam@latest",
-    "podman@latest"
+    "podman@latest",
+    "lefthook@latest"
   ],
   "shell": {
+    "init_hook": [
+      "lefthook install"
+    ],
     "scripts": {
       "test": [
         "make test"
