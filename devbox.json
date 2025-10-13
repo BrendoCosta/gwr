@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/main/.schema/devbox.schema.json",
+  "packages": [
+    "gleam@latest",
+    "podman@latest"
+  ],
+  "shell": {
+    "scripts": {
+      "test": [
+        "make test"
+      ]
+    }
+  }
+}
