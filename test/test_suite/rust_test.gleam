@@ -1,7 +1,7 @@
 import gleam/pair
 
 import gwr/gwr
-import gwr/execution/runtime
+import gwr/spec
 
 import gleeunit
 import gleeunit/should
@@ -22,8 +22,8 @@ pub fn rust_fib_test()
     |> should.be_ok
     |> gwr.create()
     |> should.be_ok
-    |> gwr.call("fib", [runtime.Integer32(12)])
+    |> gwr.call("fib", [spec.Integer32Value(12)])
     |> should.be_ok
     |> pair.second
-    |> should.equal([runtime.Integer32(144)])
+    |> should.equal([spec.Integer32Value(144)])
 }

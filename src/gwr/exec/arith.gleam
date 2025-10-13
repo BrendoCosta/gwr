@@ -1,7 +1,7 @@
 import gleam/int
 import gleam/result
 
-import gwr/execution/trap
+import gwr/exec/trap
 
 fn two_power_n(n: Int) -> Int
 {

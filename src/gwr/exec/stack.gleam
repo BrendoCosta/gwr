@@ -3,8 +3,8 @@ import gleam/option
 import gleam/result
 import gleam/yielder
 
-import gwr/execution/runtime
-import gwr/execution/trap
+import gwr/exec/trap
+import gwr/spec
 
 /// https://webassembly.github.io/spec/core/exec/runtime.html#stack
 pub type Stack
@@ -15,9 +15,9 @@ pub type Stack
 /// https://webassembly.github.io/spec/core/exec/runtime.html#stack
 pub type StackEntry
 {
-    ValueEntry(runtime.Value)
-    LabelEntry(runtime.Label)
-    ActivationEntry(runtime.Frame)
+    ValueEntry(spec.Value)
+    LabelEntry(spec.Label)
+    ActivationEntry(spec.Frame)
 }
 
 pub fn create() -> Stack
@@ -158,7 +158,7 @@ pub fn is_activation_frame(entry: StackEntry) -> Bool
     }
 }
 
-pub fn to_value(entry: StackEntry) -> Result(runtime.Value, trap.Trap)
+pub fn to_value(entry: StackEntry) -> Result(spec.Value, trap.Trap)
 {
     case entry
     {
@@ -169,7 +169,7 @@ pub fn to_value(entry: StackEntry) -> Result(runtime.Value, trap.Trap)
     }
 }
 
-pub fn to_label(entry: StackEntry) -> Result(runtime.Label, trap.Trap)
+pub fn to_label(entry: StackEntry) -> Result(spec.Label, trap.Trap)
 {
     case entry
     {
@@ -180,7 +180,7 @@ pub fn to_label(entry: StackEntry) -> Result(runtime.Label, trap.Trap)
     }
 }
 
-pub fn to_frame(entry: StackEntry) -> Result(runtime.Frame, trap.Trap)
+pub fn to_frame(entry: StackEntry) -> Result(spec.Frame, trap.Trap)
 {
     case entry
     {
@@ -191,7 +191,7 @@ pub fn to_frame(entry: StackEntry) -> Result(runtime.Frame, trap.Trap)
     }
 }
 
-pub fn get_current_frame(from stack: Stack) -> Result(runtime.Frame, Nil)
+pub fn get_current_frame(from stack: Stack) -> Result(spec.Frame, Nil)
 {
     case pop_while(from: stack, with: fn (entry) { !is_activation_frame(entry) }).0 |> pop
     {
@@ -200,7 +200,7 @@ pub fn get_current_frame(from stack: Stack) -> Result(runtime.Frame, Nil)
     }
 }
 
-pub fn get_current_label(from stack: Stack) -> Result(runtime.Label, Nil)
+pub fn get_current_label(from stack: Stack) -> Result(spec.Label, Nil)
 {
     pop_while(from: stack, with: fn (entry) { !is_activation_frame(entry) }).1
     |> list.filter(is_label)
@@ -209,7 +209,7 @@ pub fn get_current_label(from stack: Stack) -> Result(runtime.Label, Nil)
     |> list.first
 }
 
-pub fn replace_current_frame(from stack: Stack, with new_frame: runtime.Frame) -> Result(Stack, Nil)
+pub fn replace_current_frame(from stack: Stack, with new_frame: spec.Frame) -> Result(Stack, Nil)
 {
     let #(stack, upper_entries) = pop_while(from: stack, with: fn (entry) { !is_activation_frame(entry) })
     let #(stack, frame) = pop(stack)

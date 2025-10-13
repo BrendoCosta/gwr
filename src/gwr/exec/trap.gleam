@@ -1,7 +1,7 @@
 import gleam/list
 import gleam/option
 
-import gwr/execution/debug
+import gwr/debug
 
 pub opaque type Trap
 {

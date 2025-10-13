@@ -3,20 +3,199 @@ import gleam/dict
 import gleam/int
 import gleam/list
 import gleam/option
+import gleam/order
 import gleam/result
 import gleam/string
 import gleam/yielder
 
-import gwr/execution/numerics
-import gwr/execution/runtime
-import gwr/execution/stack
-import gwr/execution/store
-import gwr/execution/trap
-import gwr/syntax/index
-import gwr/syntax/instruction
-import gwr/syntax/types
+import gwr/exec/arith
+import gwr/exec/stack
+import gwr/exec/trap
+import gwr/spec
 
 import ieee_float
+
+pub type Machine
+{
+    Machine(module_instance: spec.ModuleInstance, stack: stack.Stack, store: spec.Store)
+}
+
+pub fn initialize(from module: spec.Module) -> Result(Machine, String)
+{
+    let store = spec.Store
+    (
+        datas: [],
+        elements: [],
+        functions: dict.new(),
+        globals: [],
+        memories: [],
+        tables: [],
+    )
+
+    // Instantiates web aseembly functions
+
+    use store <- result.try(
+        list.fold(
+            from: Ok(store),
+            over: module.functions,
+            with: fn (store, function)
+            {
+                use store <- result.try(store)
+                use store <- result.try(
+                    store
+                    |> append_web_assembly_function(function, module.types)
+                )
+                Ok(store)
+            }
+        )
+    )
+
+    // Instantiates memories
+
+    let store = list.fold(
+        from: store,
+        over: module.memories,
+        with: fn (store, memory)
+        {
+            store
+            |> append_memory(memory)
+        }
+    )
+
+    let module_instance = spec.ModuleInstance
+    (
+        types: module.types,
+        function_addresses: store.functions
+                            |> dict.to_list
+                            |> list.map(fn (x) { #(address_to_int(x.0), x.0) })
+                            |> dict.from_list,
+        table_addresses: [],
+        memory_addresses: list.index_map(store.memories, fn (_, index) { spec.MemoryAddress(index) }),
+        global_addresses: [],
+        element_addresses: [],
+        data_addresses: [],
+        exports: [],
+    )
+
+    Ok(Machine(module_instance:, stack: stack.create(), store: update_references(from: store, with: module_instance)))
+}
+
+pub fn update_references(from store: spec.Store, with new_module_instance: spec.ModuleInstance) -> spec.Store
+{
+    let updated_functions = dict.map_values(
+        in: store.functions,
+        with: fn (_address, function)
+        {
+            case function
+            {
+                spec.WebAssemblyFunctionInstance(type_: type_, module_instance: _, code: code) -> spec.WebAssemblyFunctionInstance(type_: type_, module_instance: new_module_instance, code: code)
+                _ -> function
+            }
+        }
+    )
+
+    spec.Store(..store, functions: updated_functions)
+}
+
+pub fn invoke(machine: Machine, address: spec.Address, arguments: List(spec.Value)) -> Result(#(Machine, List(spec.Value)), trap.Trap)
+{
+    // Push the arguments to the stack
+    let stack = stack.push(to: machine.stack, push: arguments |> list.map(fn (x) { stack.ValueEntry(x) }))
+
+    // Invoke the function at given index
+    use #(stack, store) <- result.try(evaluate_invoke(stack, machine.store, address))
+
+    // Pop the results from the stack
+    let #(stack, values) = stack.pop_while(from: stack, with: stack.is_value)
+    let results = list.map(values, stack.to_value)
+                  |> result.values
+                  |> list.reverse
+    Ok(#(Machine(..machine, stack:, store:), results))
+}
+
+pub fn append_web_assembly_function(to store: spec.Store, append function: spec.Function, using types_list: List(spec.FunctionType)) -> Result(spec.Store, String)
+{
+    let empty_module_instance = spec.ModuleInstance
+    (
+        types: [],
+        function_addresses: dict.new(),
+        table_addresses: [],
+        memory_addresses: [],
+        global_addresses: [],
+        element_addresses: [],
+        data_addresses: [],
+        exports: [],
+    )
+
+    let function_address = spec.FunctionAddress(dict.keys(store.functions) |> list.length)
+
+    case types_list |> list.take(up_to: function.type_ + 1) |> list.last
+    {
+        Ok(function_type) -> Ok(spec.Store(..store, functions: dict.insert(into: store.functions, for: function_address, insert: spec.WebAssemblyFunctionInstance(type_: function_type, module_instance: empty_module_instance, code: function))))
+        Error(_) -> Error("gwr/execution/store.append_web_assembly_function: couldn't find the type of the function among types list")
+    }
+}
+
+pub fn append_memory(to store: spec.Store, append memory: spec.Memory) -> spec.Store
+{
+    let memory_data = <<0x00:size(memory.type_.min * spec.memory_page_size)>>
+    spec.Store(..store, memories: list.append(store.memories, [spec.MemoryInstance(type_: memory.type_, data: memory_data)]))
+}
+
+pub fn ieee_float_to_builtin_float(value: ieee_float.IEEEFloat) -> Result(spec.FloatValue, trap.Trap)
+{
+    case ieee_float.is_finite(value)
+    {
+        True ->
+        {
+            use fin <- result.try(result.replace_error(ieee_float.to_finite(value), trap.make(trap.Unknown) |> trap.add_message("gwr/runtime/ieee_float_to_builtin_float: ieee_float.to_finite error") ))
+            Ok(spec.Finite(fin))
+        }
+        False -> case ieee_float.is_nan(value)
+        {
+            True -> Ok(spec.NaN)
+            False -> case ieee_float.compare(value, ieee_float.positive_infinity())
+            {
+                Ok(order.Eq) -> Ok(spec.Infinite(spec.Positive))
+                Ok(order.Lt) -> Ok(spec.Infinite(spec.Negative))
+                _ -> trap.make(trap.Unknown)
+                     |> trap.add_message("gwr/runtime/ieee_float_to_builtin_float: ieee_float.compare error")
+                     |> trap.to_error()
+            }
+        }
+    }
+}
+
+pub fn builtin_float_to_ieee_float(value: spec.FloatValue) -> ieee_float.IEEEFloat
+{
+    case value
+    {
+        spec.Finite(v) -> ieee_float.finite(v)
+        spec.Infinite(spec.Positive) -> ieee_float.positive_infinity()
+        spec.Infinite(spec.Negative) -> ieee_float.negative_infinity()
+        spec.NaN -> ieee_float.nan()
+    }
+}
+
+pub fn address_to_int(address: spec.Address) -> Int
+{
+    case address
+    {
+        spec.FunctionAddress(addr) -> addr
+        spec.TableAddress(addr) -> addr
+        spec.MemoryAddress(addr) -> addr
+        spec.GlobalAddress(addr) -> addr
+        spec.ElementAddress(addr) -> addr
+        spec.DataAddress(addr) -> addr
+        spec.ExternAddress(addr) -> addr
+    }
+}
+
+pub fn address_to_string(address: spec.Address) -> String
+{
+    int.to_string(address_to_int(address))
+}
+
 
 pub type ConstValue
 {
@@ -26,14 +205,14 @@ pub type ConstValue
 
 pub type UnaryOperationType
 {
-    IntegerUnaryOperation(fn (types.NumberType, Int) -> Result(Int, trap.Trap))
-    FloatUnaryOperation(fn (ieee_float.IEEEFloat) -> Result(runtime.Value, trap.Trap))
+    IntegerUnaryOperation(fn (spec.NumberType, Int) -> Result(Int, trap.Trap))
+    FloatUnaryOperation(fn (ieee_float.IEEEFloat) -> Result(spec.Value, trap.Trap))
 }
 
 pub type BinaryOperationType
 {
-    IntegerBinaryOperation(fn (types.NumberType, Int, Int) -> Result(Int, trap.Trap))
-    FloatBinaryOperation(fn (ieee_float.IEEEFloat, ieee_float.IEEEFloat) -> Result(runtime.Value, trap.Trap))
+    IntegerBinaryOperation(fn (spec.NumberType, Int, Int) -> Result(Int, trap.Trap))
+    FloatBinaryOperation(fn (ieee_float.IEEEFloat, ieee_float.IEEEFloat) -> Result(spec.Value, trap.Trap))
 }
 
 pub type TestOperationType
@@ -44,18 +223,18 @@ pub type TestOperationType
 
 pub type ComparisonOperationType
 {
-    IntegerComparisonOperation(fn (types.NumberType, Int, Int) -> Result(Int, trap.Trap))
+    IntegerComparisonOperation(fn (spec.NumberType, Int, Int) -> Result(Int, trap.Trap))
     FloatComparisonOperation(fn (ieee_float.IEEEFloat, ieee_float.IEEEFloat) -> Result(Int, trap.Trap))
 }
 
 pub type Jump
 {
-    Branch(target: List(instruction.Instruction))
+    Branch(target: List(spec.Instruction))
     Return
 }
 
 /// https://webassembly.github.io/spec/core/exec/instructions.html#t-mathsf-xref-syntax-instructions-syntax-unop-mathit-unop
-fn unary_operation(stack: stack.Stack, type_: types.NumberType, operation_type: UnaryOperationType) -> Result(stack.Stack, trap.Trap)
+fn unary_operation(stack: stack.Stack, type_: spec.NumberType, operation_type: UnaryOperationType) -> Result(stack.Stack, trap.Trap)
 {
     // 1. Assert: due to validation, a value of value type t is on the top of the stack.
     // 2. Pop the value t.{\mathsf{const}}~c_1 from the stack.
@@ -65,21 +244,21 @@ fn unary_operation(stack: stack.Stack, type_: types.NumberType, operation_type: 
         {
             // 3. If {\mathit{unop}}_t(c_1) is defined, then:
             //      3a. Let c be a possible result of computing {\mathit{unop}}_t(c_1).
-              types.Integer32, IntegerUnaryOperation(unop), option.Some(stack.ValueEntry(runtime.Integer32(c1))) 
-            | types.Integer64, IntegerUnaryOperation(unop), option.Some(stack.ValueEntry(runtime.Integer64(c1))) ->
+              spec.Integer32, IntegerUnaryOperation(unop), option.Some(stack.ValueEntry(spec.Integer32Value(c1))) 
+            | spec.Integer64, IntegerUnaryOperation(unop), option.Some(stack.ValueEntry(spec.Integer64Value(c1))) ->
             {
                 use c <- result.try(unop(type_, c1))
                 // Do operations with 64 bit, demote it to 32 bit if necessary
                 case type_
                 {
-                    types.Integer32 -> Ok(runtime.Integer32(c))
-                    _ -> Ok(runtime.Integer64(c))
+                    spec.Integer32 -> Ok(spec.Integer32Value(c))
+                    _ -> Ok(spec.Integer64Value(c))
                 }
             }
-              types.Float32, FloatUnaryOperation(unop), option.Some(stack.ValueEntry(runtime.Float32(c1)))
-            | types.Float64, FloatUnaryOperation(unop), option.Some(stack.ValueEntry(runtime.Float64(c1))) ->
+              spec.Float32, FloatUnaryOperation(unop), option.Some(stack.ValueEntry(spec.Float32Value(c1)))
+            | spec.Float64, FloatUnaryOperation(unop), option.Some(stack.ValueEntry(spec.Float64Value(c1))) ->
             {
-                unop(runtime.builtin_float_to_ieee_float(c1))
+                unop(builtin_float_to_ieee_float(c1))
             }
             // 4. Else:
             //      4a. Trap
@@ -93,7 +272,7 @@ fn unary_operation(stack: stack.Stack, type_: types.NumberType, operation_type: 
 }
 
 /// https://webassembly.github.io/spec/core/exec/instructions.html#t-mathsf-xref-syntax-instructions-syntax-binop-mathit-binop
-fn binary_operation(stack: stack.Stack, type_: types.NumberType, operation_type: BinaryOperationType) -> Result(stack.Stack, trap.Trap)
+fn binary_operation(stack: stack.Stack, type_: spec.NumberType, operation_type: BinaryOperationType) -> Result(stack.Stack, trap.Trap)
 {
     // 1. Assert: due to validation, two values of value type t are on the top of the stack.
     // 2. Pop the value t.{\mathsf{const}}~c_2 from the stack.
@@ -104,21 +283,21 @@ fn binary_operation(stack: stack.Stack, type_: types.NumberType, operation_type:
         {
             // 4. If {\mathit{binop}}_t(c_1, c_2) is defined, then:
             //      4a. Let c be a possible result of computing {\mathit{binop}}_t(c_1, c_2).
-              types.Integer32, IntegerBinaryOperation(binop), [stack.ValueEntry(runtime.Integer32(c2)), stack.ValueEntry(runtime.Integer32(c1))] 
-            | types.Integer64, IntegerBinaryOperation(binop), [stack.ValueEntry(runtime.Integer64(c2)), stack.ValueEntry(runtime.Integer64(c1))] ->
+              spec.Integer32, IntegerBinaryOperation(binop), [stack.ValueEntry(spec.Integer32Value(c2)), stack.ValueEntry(spec.Integer32Value(c1))] 
+            | spec.Integer64, IntegerBinaryOperation(binop), [stack.ValueEntry(spec.Integer64Value(c2)), stack.ValueEntry(spec.Integer64Value(c1))] ->
             {
                 use c <- result.try(binop(type_, c1, c2))
                 // Do operations with 64 bit, demote it to 32 bit if necessary
                 case type_
                 {
-                    types.Integer32 -> Ok(runtime.Integer32(c))
-                    _ -> Ok(runtime.Integer64(c))
+                    spec.Integer32 -> Ok(spec.Integer32Value(c))
+                    _ -> Ok(spec.Integer64Value(c))
                 }
             }
-              types.Float32, FloatBinaryOperation(binop), [stack.ValueEntry(runtime.Float32(c2)), stack.ValueEntry(runtime.Float32(c1))]
-            | types.Float64, FloatBinaryOperation(binop), [stack.ValueEntry(runtime.Float64(c2)), stack.ValueEntry(runtime.Float64(c1))] ->
+              spec.Float32, FloatBinaryOperation(binop), [stack.ValueEntry(spec.Float32Value(c2)), stack.ValueEntry(spec.Float32Value(c1))]
+            | spec.Float64, FloatBinaryOperation(binop), [stack.ValueEntry(spec.Float64Value(c2)), stack.ValueEntry(spec.Float64Value(c1))] ->
             {
-                binop(runtime.builtin_float_to_ieee_float(c1), runtime.builtin_float_to_ieee_float(c2))
+                binop(builtin_float_to_ieee_float(c1), builtin_float_to_ieee_float(c2))
             }
             // 5. Else:
             //      5a. Trap
@@ -131,17 +310,17 @@ fn binary_operation(stack: stack.Stack, type_: types.NumberType, operation_type:
     Ok(stack.push(stack, [stack.ValueEntry(c)]))
 }
 
-fn get_bitwidth(type_: types.NumberType) -> Int
+fn get_bitwidth(type_: spec.NumberType) -> Int
 {
     case type_
     {
-        types.Integer32 | types.Float32 -> 32
-        types.Integer64 | types.Float64 -> 64
+        spec.Integer32 | spec.Float32 -> 32
+        spec.Integer64 | spec.Float64 -> 64
     }
 }
 
 /// https://webassembly.github.io/spec/core/exec/instructions.html#t-mathsf-xref-syntax-instructions-syntax-testop-mathit-testop
-fn test_operation(stack: stack.Stack, type_: types.NumberType, operation_type: TestOperationType) -> Result(stack.Stack, trap.Trap)
+fn test_operation(stack: stack.Stack, type_: spec.NumberType, operation_type: TestOperationType) -> Result(stack.Stack, trap.Trap)
 {
     // 1. Assert: due to validation, a value of value type t is on the top of the stack.
     // 2. Pop the value t.{\mathsf{const}}~c_1 from the stack.
@@ -150,15 +329,15 @@ fn test_operation(stack: stack.Stack, type_: types.NumberType, operation_type: T
         case type_, operation_type, values
         {
             // 3. Let c be the result of computing {\mathit{testop}}_t(c_1).
-              types.Integer32 , IntegerTestOperation(testop), option.Some(stack.ValueEntry(runtime.Integer32(c1))) 
-            | types.Integer64, IntegerTestOperation(testop), option.Some(stack.ValueEntry(runtime.Integer64(c1))) ->
+              spec.Integer32 , IntegerTestOperation(testop), option.Some(stack.ValueEntry(spec.Integer32Value(c1))) 
+            | spec.Integer64, IntegerTestOperation(testop), option.Some(stack.ValueEntry(spec.Integer64Value(c1))) ->
             {
                 testop(c1)
             }
-              types.Float32, FloatTestOperation(testop), option.Some(stack.ValueEntry(runtime.Float32(c1)))
-            | types.Float64, FloatTestOperation(testop), option.Some(stack.ValueEntry(runtime.Float64(c1))) ->
+              spec.Float32, FloatTestOperation(testop), option.Some(stack.ValueEntry(spec.Float32Value(c1)))
+            | spec.Float64, FloatTestOperation(testop), option.Some(stack.ValueEntry(spec.Float64Value(c1))) ->
             {
-                testop(runtime.builtin_float_to_ieee_float(c1))
+                testop(builtin_float_to_ieee_float(c1))
             }
             t, h, args -> trap.make(trap.BadArgument)
                           |> trap.add_message(string.inspect(#(t, h, args)))
@@ -166,11 +345,11 @@ fn test_operation(stack: stack.Stack, type_: types.NumberType, operation_type: T
         }
     )
     // 4 Push the value {\mathsf{i32}}.{\mathsf{const}}~c to the stack.
-    Ok(stack.push(stack, [stack.ValueEntry(runtime.Integer32(c))]))
+    Ok(stack.push(stack, [stack.ValueEntry(spec.Integer32Value(c))]))
 }
 
 /// https://webassembly.github.io/spec/core/exec/instructions.html#t-mathsf-xref-syntax-instructions-syntax-relop-mathit-relop
-fn comparison_operation(stack: stack.Stack, type_: types.NumberType, operation_type: ComparisonOperationType) -> Result(stack.Stack, trap.Trap)
+fn comparison_operation(stack: stack.Stack, type_: spec.NumberType, operation_type: ComparisonOperationType) -> Result(stack.Stack, trap.Trap)
 {
     // 1. Assert: due to validation, two values of value type t are on the top of the stack.
     // 2. Pop the value t.{\mathsf{const}}~c_2 from the stack.
@@ -180,15 +359,15 @@ fn comparison_operation(stack: stack.Stack, type_: types.NumberType, operation_t
         case type_, operation_type, values
         {
             // 3. Let c be the result of computing {\mathit{relop}}_t(c_1, c_2).
-              types.Integer32, IntegerComparisonOperation(relop), [stack.ValueEntry(runtime.Integer32(c2)), stack.ValueEntry(runtime.Integer32(c1))] 
-            | types.Integer64, IntegerComparisonOperation(relop), [stack.ValueEntry(runtime.Integer64(c2)), stack.ValueEntry(runtime.Integer64(c1))] ->
+              spec.Integer32, IntegerComparisonOperation(relop), [stack.ValueEntry(spec.Integer32Value(c2)), stack.ValueEntry(spec.Integer32Value(c1))] 
+            | spec.Integer64, IntegerComparisonOperation(relop), [stack.ValueEntry(spec.Integer64Value(c2)), stack.ValueEntry(spec.Integer64Value(c1))] ->
             {
                 relop(type_, c1, c2)
             }
-              types.Float32, FloatComparisonOperation(relop), [stack.ValueEntry(runtime.Float32(c2)), stack.ValueEntry(runtime.Float32(c1))]
-            | types.Float64, FloatComparisonOperation(relop), [stack.ValueEntry(runtime.Float64(c2)), stack.ValueEntry(runtime.Float64(c1))] ->
+              spec.Float32, FloatComparisonOperation(relop), [stack.ValueEntry(spec.Float32Value(c2)), stack.ValueEntry(spec.Float32Value(c1))]
+            | spec.Float64, FloatComparisonOperation(relop), [stack.ValueEntry(spec.Float64Value(c2)), stack.ValueEntry(spec.Float64Value(c1))] ->
             {
-                relop(runtime.builtin_float_to_ieee_float(c1), runtime.builtin_float_to_ieee_float(c2))
+                relop(builtin_float_to_ieee_float(c1), builtin_float_to_ieee_float(c2))
             }
             t, h, args -> trap.make(trap.BadArgument)
                           |> trap.add_message(string.inspect(#(t, h, args)))
@@ -196,27 +375,27 @@ fn comparison_operation(stack: stack.Stack, type_: types.NumberType, operation_t
         }
     )
     // 5. Push the value t.{\mathsf{const}}~c to the stack.
-    Ok(stack.push(stack, [stack.ValueEntry(runtime.Integer32(c))]))
+    Ok(stack.push(stack, [stack.ValueEntry(spec.Integer32Value(c))]))
 }
 
 /// https://webassembly.github.io/spec/core/exec/instructions.html#t-mathsf-xref-syntax-instructions-syntax-instr-numeric-mathsf-const-c
-pub fn evaluate_const(stack: stack.Stack, type_: types.NumberType, value: ConstValue) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_const(stack: stack.Stack, type_: spec.NumberType, value: ConstValue) -> Result(stack.Stack, trap.Trap)
 {
     // 1. Push the value t.{\mathsf{const}}~c to the stack.
     use c <- result.try(
         case type_, value
         {
-            types.Integer32, IntegerConstValue(value:) -> Ok(runtime.Integer32(value))
-            types.Integer64, IntegerConstValue(value:) -> Ok(runtime.Integer64(value))
-            types.Float32, FloatConstValue(value:) ->
+            spec.Integer32, IntegerConstValue(value:) -> Ok(spec.Integer32Value(value))
+            spec.Integer64, IntegerConstValue(value:) -> Ok(spec.Integer64Value(value))
+            spec.Float32, FloatConstValue(value:) ->
             {
-                use built_in_float <- result.try(runtime.ieee_float_to_builtin_float(value))
-                Ok(runtime.Float32(built_in_float))
+                use built_in_float <- result.try(ieee_float_to_builtin_float(value))
+                Ok(spec.Float32Value(built_in_float))
             }
-            types.Float64, FloatConstValue(value:) ->
+            spec.Float64, FloatConstValue(value:) ->
             {
-                use built_in_float <- result.try(runtime.ieee_float_to_builtin_float(value))
-                Ok(runtime.Float64(built_in_float))
+                use built_in_float <- result.try(ieee_float_to_builtin_float(value))
+                Ok(spec.Float64Value(built_in_float))
             }
             _, _ -> trap.make(trap.BadArgument)
                     |> trap.to_error()
@@ -225,167 +404,167 @@ pub fn evaluate_const(stack: stack.Stack, type_: types.NumberType, value: ConstV
     Ok(stack.push(to: stack, push: [stack.ValueEntry(c)]))
 }
 
-pub fn evaluate_iadd(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_iadd(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(numerics.iadd(get_bitwidth(t), a, b)) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(arith.iadd(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_isub(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_isub(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(numerics.isub(get_bitwidth(t), a, b)) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(arith.isub(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_imul(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_imul(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(numerics.imul(get_bitwidth(t), a, b)) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(arith.imul(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_idiv_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_idiv_u(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.idiv_u(get_bitwidth(t), a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { arith.idiv_u(get_bitwidth(t), a, b) }))
 }
 
-pub fn evaluate_idiv_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_idiv_s(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.idiv_s(get_bitwidth(t), a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { arith.idiv_s(get_bitwidth(t), a, b) }))
 }
 
-pub fn evaluate_irem_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_irem_u(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.irem_u(get_bitwidth(t), a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { arith.irem_u(get_bitwidth(t), a, b) }))
 }
 
-pub fn evaluate_irem_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_irem_s(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.irem_s(get_bitwidth(t), a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { arith.irem_s(get_bitwidth(t), a, b) }))
 }
 
-pub fn evaluate_iand(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_iand(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(numerics.iand(get_bitwidth(t), a, b)) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(arith.iand(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_ior(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ior(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(numerics.ior(get_bitwidth(t), a, b)) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(arith.ior(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_ixor(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ixor(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(numerics.ixor(get_bitwidth(t), a, b)) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { Ok(arith.ixor(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_ishl(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ishl(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.ishl(get_bitwidth(t), a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { arith.ishl(get_bitwidth(t), a, b) }))
 }
 
-pub fn evaluate_ishr_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ishr_u(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.ishr_u(get_bitwidth(t), a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { arith.ishr_u(get_bitwidth(t), a, b) }))
 }
 
-pub fn evaluate_ishr_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ishr_s(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.ishr_s(get_bitwidth(t), a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { arith.ishr_s(get_bitwidth(t), a, b) }))
 }
 
-pub fn evaluate_irotl(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_irotl(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.irotl(get_bitwidth(t), a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { arith.irotl(get_bitwidth(t), a, b) }))
 }
 
-pub fn evaluate_irotr(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_irotr(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { numerics.irotr(get_bitwidth(t), a, b) }))
+    binary_operation(stack, type_, IntegerBinaryOperation(fn (t, a, b) { arith.irotr(get_bitwidth(t), a, b) }))
 }
 
-pub fn evaluate_iclz(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_iclz(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { numerics.iclz(get_bitwidth(t), a) }))
+    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { arith.iclz(get_bitwidth(t), a) }))
 }
 
-pub fn evaluate_ictz(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ictz(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { numerics.ictz(get_bitwidth(t), a) }))
+    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { arith.ictz(get_bitwidth(t), a) }))
 }
 
-pub fn evaluate_ipopcnt(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ipopcnt(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { numerics.ipopcnt(get_bitwidth(t), a) }))
+    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { arith.ipopcnt(get_bitwidth(t), a) }))
 }
 
-pub fn evaluate_ieqz(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ieqz(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    test_operation(stack, type_, IntegerTestOperation(fn (a) { Ok(numerics.ieqz(a)) }))
+    test_operation(stack, type_, IntegerTestOperation(fn (a) { Ok(arith.ieqz(a)) }))
 }
 
-pub fn evaluate_ieq(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ieq(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (_, a, b) { Ok(numerics.ieq(a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (_, a, b) { Ok(arith.ieq(a, b)) }))
 }
 
-pub fn evaluate_ine(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ine(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (_, a, b) { Ok(numerics.ine(a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (_, a, b) { Ok(arith.ine(a, b)) }))
 }
 
-pub fn evaluate_ilt_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ilt_u(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ilt_u(get_bitwidth(t), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(arith.ilt_u(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_ilt_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ilt_s(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ilt_s(get_bitwidth(t), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(arith.ilt_s(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_igt_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_igt_u(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.igt_u(get_bitwidth(t), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(arith.igt_u(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_igt_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_igt_s(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.igt_s(get_bitwidth(t), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(arith.igt_s(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_ile_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ile_u(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ile_u(get_bitwidth(t), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(arith.ile_u(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_ile_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ile_s(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ile_s(get_bitwidth(t), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(arith.ile_s(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_ige_u(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ige_u(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ige_u(get_bitwidth(t), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(arith.ige_u(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_ige_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_ige_s(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(numerics.ige_s(get_bitwidth(t), a, b)) }))
+    comparison_operation(stack, type_, IntegerComparisonOperation(fn (t, a, b) { Ok(arith.ige_s(get_bitwidth(t), a, b)) }))
 }
 
-pub fn evaluate_iextend8_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_iextend8_s(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { numerics.iextend8_s(get_bitwidth(t), a) }))
+    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { arith.iextend8_s(get_bitwidth(t), a) }))
 }
 
-pub fn evaluate_iextend16_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_iextend16_s(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { numerics.iextend16_s(get_bitwidth(t), a) }))
+    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { arith.iextend16_s(get_bitwidth(t), a) }))
 }
 
-pub fn evaluate_iextend32_s(stack: stack.Stack, type_: types.NumberType) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_iextend32_s(stack: stack.Stack, type_: spec.NumberType) -> Result(stack.Stack, trap.Trap)
 {
-    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { numerics.iextend32_s(get_bitwidth(t), a) }))
+    unary_operation(stack, type_, IntegerUnaryOperation(fn (t, a) { arith.iextend32_s(get_bitwidth(t), a) }))
 }
 
-pub fn evaluate_local_get(stack: stack.Stack, index: index.LocalIndex) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_local_get(stack: stack.Stack, index: spec.LocalIndex) -> Result(stack.Stack, trap.Trap)
 {
     // 1. Let F be the current frame.
     use frame <- result.try(result.replace_error(stack.get_current_frame(from: stack), trap.make(trap.InvalidState) |> trap.add_message("gwr/execution/evaluator.evaluate_local_get: couldn't get the current frame")))
@@ -396,7 +575,7 @@ pub fn evaluate_local_get(stack: stack.Stack, index: index.LocalIndex) -> Result
     Ok(stack.push(stack, [stack.ValueEntry(local)]))
 }
 
-pub fn evaluate_local_set(stack: stack.Stack, index: index.LocalIndex) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_local_set(stack: stack.Stack, index: spec.LocalIndex) -> Result(stack.Stack, trap.Trap)
 {
     // 1. Let F be the current frame.
     use frame <- result.try(result.replace_error(stack.get_current_frame(from: stack), trap.make(trap.InvalidState) |> trap.add_message("gwr/execution/evaluator.evaluate_local_set: couldn't get the current frame")))
@@ -411,10 +590,10 @@ pub fn evaluate_local_set(stack: stack.Stack, index: index.LocalIndex) -> Result
     use stack <- result.try(
         stack.replace_current_frame(
             from: stack,
-            with: runtime.Frame
+            with: spec.Frame
             (
                 ..frame,
-                framestate: runtime.FrameState
+                framestate: spec.FrameState
                 (
                     ..frame.framestate,
                     locals: dict.insert(into: frame.framestate.locals, for: index, insert: value)
@@ -429,7 +608,7 @@ pub fn evaluate_local_set(stack: stack.Stack, index: index.LocalIndex) -> Result
     Ok(stack)
 }
 
-pub fn evaluate_local_tee(stack: stack.Stack, index: index.LocalIndex) -> Result(stack.Stack, trap.Trap)
+pub fn evaluate_local_tee(stack: stack.Stack, index: spec.LocalIndex) -> Result(stack.Stack, trap.Trap)
 {
     // 1. Assert: due to validation, a value is on the top of the stack.
     // 2. Pop the value val from the stack.
@@ -449,17 +628,17 @@ pub fn evaluate_local_tee(stack: stack.Stack, index: index.LocalIndex) -> Result
     }
 }
 
-fn get_default_value_for_type(type_: types.ValueType) -> runtime.Value
+fn get_default_value_for_type(type_: spec.ValueType) -> spec.Value
 {
     case type_
     {
-        types.Number(types.Integer32) -> runtime.Integer32(runtime.number_value_default_value)
-        types.Number(types.Integer64) -> runtime.Integer64(runtime.number_value_default_value)
-        types.Number(types.Float32) -> runtime.Float32(runtime.Finite(int.to_float(runtime.number_value_default_value)))
-        types.Number(types.Float64) -> runtime.Float64(runtime.Finite(int.to_float(runtime.number_value_default_value)))
-        types.Vector(types.Vector128) -> runtime.Vector(runtime.vector_value_default_value)
-        types.Reference(types.FunctionReference) -> runtime.Reference(runtime.NullReference)
-        types.Reference(types.ExternReference) -> runtime.Reference(runtime.NullReference)
+        spec.Number(spec.Integer32) -> spec.Integer32Value(spec.number_value_default_value)
+        spec.Number(spec.Integer64) -> spec.Integer64Value(spec.number_value_default_value)
+        spec.Number(spec.Float32) -> spec.Float32Value(spec.Finite(int.to_float(spec.number_value_default_value)))
+        spec.Number(spec.Float64) -> spec.Float64Value(spec.Finite(int.to_float(spec.number_value_default_value)))
+        spec.Vector(spec.Vector128) -> spec.VectorValue(spec.vector_value_default_value)
+        spec.Reference(spec.FunctionReference) -> spec.ReferenceValue(spec.NullReference)
+        spec.Reference(spec.ExternReference) -> spec.ReferenceValue(spec.NullReference)
     }
 }
 
@@ -507,7 +686,7 @@ pub fn evaluate_return(stack: stack.Stack) -> Result(#(stack.Stack, option.Optio
     Ok(#(stack, option.Some(Return)))
 }
 
-pub fn evaluate_call(stack: stack.Stack, store: store.Store, index: index.FunctionIndex) -> Result(#(stack.Stack, store.Store), trap.Trap)
+pub fn evaluate_call(stack: stack.Stack, store: spec.Store, index: spec.FunctionIndex) -> Result(#(stack.Stack, spec.Store), trap.Trap)
 {
     // 1. Let F be the current frame.
     use frame <- result.try(
@@ -527,10 +706,10 @@ pub fn evaluate_call(stack: stack.Stack, store: store.Store, index: index.Functi
         )
     )
     // 4. Invoke the function instance at address a.
-    invoke(stack, store, address)
+    evaluate_invoke(stack, store, address)
 }
 
-pub fn invoke(stack: stack.Stack, store: store.Store, address: runtime.Address) -> Result(#(stack.Stack, store.Store), trap.Trap)
+pub fn evaluate_invoke(stack: stack.Stack, store: spec.Store, address: spec.Address) -> Result(#(stack.Stack, spec.Store), trap.Trap)
 {
     // 1. Assert: due to validation, S.{\mathsf{funcs}}[a] exists.
     // 2. Let f be the function instance, S.{\mathsf{funcs}}[a].
@@ -538,15 +717,15 @@ pub fn invoke(stack: stack.Stack, store: store.Store, address: runtime.Address) 
         dict.get(store.functions, address)
         |> result.replace_error(
             trap.make(trap.InvalidState)
-            |> trap.add_message("gwr/execution/evaluator.invoke: couldn't find the function instance with address " <> runtime.address_to_string(address))
+            |> trap.add_message("gwr/execution/evaluator.invoke: couldn't find the function instance with address " <> address_to_string(address))
         )
     )
     case function_instance
     {
-        runtime.HostFunctionInstance(_, _) -> trap.make(trap.BadArgument)
+        spec.HostFunctionInstance(_, _) -> trap.make(trap.BadArgument)
                                               |> trap.add_message("@TODO: call host function")
                                               |> trap.to_error()
-        runtime.WebAssemblyFunctionInstance(type_: function_type, module_instance: function_module_instance, code: function_code) ->
+        spec.WebAssemblyFunctionInstance(type_: function_type, module_instance: function_module_instance, code: function_code) ->
         {
             // 3. Let [t_1^n] {\rightarrow} [t_2^m] be the function type f.{\mathsf{type}}.
             let n = list.length(function_type.parameters)
@@ -568,7 +747,7 @@ pub fn invoke(stack: stack.Stack, store: store.Store, address: runtime.Address) 
                          |> result.values
                          |> list.reverse
             // 8. Let F be the frame \{ {\mathsf{module}}~f.{\mathsf{module}}, {\mathsf{locals}}~{\mathit{val}}^n~({\mathrm{default}}_t)^\ast \}.
-            let framestate = runtime.FrameState
+            let framestate = spec.FrameState
             (
                 locals: values
                         |> list.append(list.map(function_locals_types, get_default_value_for_type)) // function's arguments will be joined with function's locals
@@ -576,7 +755,7 @@ pub fn invoke(stack: stack.Stack, store: store.Store, address: runtime.Address) 
                         |> dict.from_list,
                 module_instance: function_module_instance
             )
-            evaluate_with_frame(stack, store, runtime.Frame(arity: m, framestate: framestate), function_instructions)
+            evaluate_with_frame(stack, store, spec.Frame(arity: m, framestate: framestate), function_instructions)
         }
     }
 }
@@ -594,12 +773,12 @@ pub fn unwind_stack(stack: stack.Stack) -> Result(stack.Stack, trap.Trap)
     }
 }
 
-pub fn evaluate_with_frame(stack: stack.Stack, store: store.Store, frame: runtime.Frame, instructions: List(instruction.Instruction)) -> Result(#(stack.Stack, store.Store), trap.Trap)
+pub fn evaluate_with_frame(stack: stack.Stack, store: spec.Store, frame: spec.Frame, instructions: List(spec.Instruction)) -> Result(#(stack.Stack, spec.Store), trap.Trap)
 {
     // 9. Push the activation of F with arity m to the stack.
     let stack = stack.push(to: stack, push: [stack.ActivationEntry(frame)])
     // 10. Let L be the label whose arity is m and whose continuation is the end of the function.
-    let label = runtime.Label(arity: frame.arity, continuation: [])
+    let label = spec.Label(arity: frame.arity, continuation: [])
     // 11. Enter the instruction sequence {\mathit{instr}}^\ast with label L.
     use #(stack, store, jump) <- result.try(enter_with_label(stack, store, label, instructions, []))
     // Returning from a function
@@ -644,7 +823,7 @@ pub fn evaluate_with_frame(stack: stack.Stack, store: store.Store, frame: runtim
     }
 }
 
-pub fn evaluate_br(stack: stack.Stack, store: store.Store, index: index.LabelIndex) -> Result(#(stack.Stack, store.Store, option.Option(Jump)), trap.Trap)
+pub fn evaluate_br(stack: stack.Stack, store: spec.Store, index: spec.LabelIndex) -> Result(#(stack.Stack, spec.Store, option.Option(Jump)), trap.Trap)
 {
     // 1. Assert: due to validation, the stack contains at least l+1 labels.
     let all_labels = stack.pop_all(from: stack).1 |> list.filter(stack.is_label)
@@ -707,13 +886,13 @@ pub fn evaluate_br(stack: stack.Stack, store: store.Store, index: index.LabelInd
     Ok(#(stack, store, option.Some(Branch(target: label.continuation))))
 }
 
-pub fn evaluate_br_if(stack: stack.Stack, store: store.Store, index: index.LabelIndex) -> Result(#(stack.Stack, store.Store, option.Option(Jump)), trap.Trap)
+pub fn evaluate_br_if(stack: stack.Stack, store: spec.Store, index: spec.LabelIndex) -> Result(#(stack.Stack, spec.Store, option.Option(Jump)), trap.Trap)
 {
     // 1. Assert: due to validation, a value of value type {\mathsf{i32}} is on the top of the stack.
     // 2. Pop the value {\mathsf{i32}}.{\mathsf{const}}~c from the stack.
     case stack.pop(from: stack)
     {
-        #(stack, option.Some(stack.ValueEntry(runtime.Integer32(c)))) ->
+        #(stack, option.Some(stack.ValueEntry(spec.Integer32Value(c)))) ->
         {
             // 3. If c is non-zero, then:
             case c != 0
@@ -731,7 +910,7 @@ pub fn evaluate_br_if(stack: stack.Stack, store: store.Store, index: index.Label
     }
 }
 
-pub fn evaluate_loop(stack: stack.Stack, store: store.Store, block_type: instruction.BlockType, instructions: List(instruction.Instruction)) -> Result(#(stack.Stack, store.Store, option.Option(Jump)), trap.Trap)
+pub fn evaluate_loop(stack: stack.Stack, store: spec.Store, block_type: spec.BlockType, instructions: List(spec.Instruction)) -> Result(#(stack.Stack, spec.Store, option.Option(Jump)), trap.Trap)
 {
     // 1. Let F be the current frame.
     use frame <- result.try(
@@ -746,7 +925,7 @@ pub fn evaluate_loop(stack: stack.Stack, store: store.Store, block_type: instruc
     use function_type <- result.try(expand_block_type(frame.framestate, block_type))
     let m = list.length(function_type.parameters)
     // 4. Let L be the label whose arity is m and whose continuation is the start of the loop.
-    let label = runtime.Label(arity: m, continuation: [instruction.Loop(block_type: block_type, instructions: instructions)])
+    let label = spec.Label(arity: m, continuation: [spec.Loop(block_type: block_type, instructions: instructions)])
     // 5. Assert: due to validation, there are at least m values on the top of the stack.
     let count_of_values_on_top = stack.count_on_top(from: stack, with: stack.is_value)
     use <- bool.guard(when: count_of_values_on_top < m, return:
@@ -760,7 +939,7 @@ pub fn evaluate_loop(stack: stack.Stack, store: store.Store, block_type: instruc
     enter_with_label(stack, store, label, instructions, values |> list.reverse)
 }
 
-pub fn evaluate_block(stack: stack.Stack, store: store.Store, block_type: instruction.BlockType, instructions: List(instruction.Instruction)) -> Result(#(stack.Stack, store.Store, option.Option(Jump)), trap.Trap)
+pub fn evaluate_block(stack: stack.Stack, store: spec.Store, block_type: spec.BlockType, instructions: List(spec.Instruction)) -> Result(#(stack.Stack, spec.Store, option.Option(Jump)), trap.Trap)
 {
     // 1. Let F be the current frame.
     use frame <- result.try(
@@ -776,7 +955,7 @@ pub fn evaluate_block(stack: stack.Stack, store: store.Store, block_type: instru
     let m = list.length(function_type.parameters)
     let n = list.length(function_type.results)
     // 4. Let L be the label whose arity is n and whose continuation is the end of the block.
-    let label = runtime.Label(arity: n, continuation: [])
+    let label = spec.Label(arity: n, continuation: [])
     // 5. Assert: due to validation, there are at least m values on the top of the stack.
     let count_of_values_on_top = stack.count_on_top(from: stack, with: stack.is_value)
     use <- bool.guard(when: count_of_values_on_top < m, return:
@@ -790,12 +969,12 @@ pub fn evaluate_block(stack: stack.Stack, store: store.Store, block_type: instru
     enter_with_label(stack, store, label, instructions, values |> list.reverse)
 }
 
-pub fn enter_with_label(stack: stack.Stack, store: store.Store, label: runtime.Label, instructions: List(instruction.Instruction), parameters: List(stack.StackEntry)) -> Result(#(stack.Stack, store.Store, option.Option(Jump)), trap.Trap)
+pub fn enter_with_label(stack: stack.Stack, store: spec.Store, label: spec.Label, instructions: List(spec.Instruction), parameters: List(stack.StackEntry)) -> Result(#(stack.Stack, spec.Store, option.Option(Jump)), trap.Trap)
 {
     evaluate_expression(stack.push(to: stack, push: [stack.LabelEntry(label)] |> list.append(parameters)), store, instructions)
 }
 
-pub fn exit_with_label(stack: stack.Stack, label: runtime.Label) -> Result(stack.Stack, trap.Trap)
+pub fn exit_with_label(stack: stack.Stack, label: spec.Label) -> Result(stack.Stack, trap.Trap)
 {
     // 1. Pop all values {\mathit{val}}^\ast from the top of the stack.
     let #(stack, values) = stack.pop_while(from: stack, with: stack.is_value)
@@ -815,7 +994,7 @@ pub fn exit_with_label(stack: stack.Stack, label: runtime.Label) -> Result(stack
     Ok(stack.push(to: stack, push: values |> list.reverse))
 }
 
-pub fn evaluate_expression(stack: stack.Stack, store: store.Store, instructions: List(instruction.Instruction)) -> Result(#(stack.Stack, store.Store, option.Option(Jump)), trap.Trap)
+pub fn evaluate_expression(stack: stack.Stack, store: spec.Store, instructions: List(spec.Instruction)) -> Result(#(stack.Stack, spec.Store, option.Option(Jump)), trap.Trap)
 {
     case instructions
     {
@@ -833,93 +1012,93 @@ pub fn evaluate_expression(stack: stack.Stack, store: store.Store, instructions:
                 case instruction
                 {
                     // Control Instructions
-                    instruction.NoOp -> Ok(#(stack, store, option.None))
-                    instruction.Unreachable -> trap.make(trap.Unreachable) |> trap.to_error()
-                    instruction.End -> Ok(#(stack, store, option.None))
-                    instruction.Block(block_type:, instructions:) -> evaluate_block(stack, store, block_type, instructions)
-                    instruction.If(block_type:, instructions:, else_: else_) -> evaluate_if_else(stack, store, block_type, instructions, else_)
-                    instruction.Loop(block_type:, instructions:) -> evaluate_loop(stack, store, block_type, instructions)
-                    instruction.Br(index:) -> evaluate_br(stack, store, index)
-                    instruction.BrIf(index:) -> evaluate_br_if(stack, store, index)
-                    instruction.Return -> evaluate_return(stack) |> result.map(fn (x) { #(x.0, store, x.1) })
-                    instruction.Call(index:) -> evaluate_call(stack, store, index) |> result.map(fn (x) { #(x.0, x.1, option.None) })
+                    spec.NoOp -> Ok(#(stack, store, option.None))
+                    spec.Unreachable -> trap.make(trap.Unreachable) |> trap.to_error()
+                    spec.End -> Ok(#(stack, store, option.None))
+                    spec.Block(block_type:, instructions:) -> evaluate_block(stack, store, block_type, instructions)
+                    spec.If(block_type:, instructions:, else_: else_) -> evaluate_if_else(stack, store, block_type, instructions, else_)
+                    spec.Loop(block_type:, instructions:) -> evaluate_loop(stack, store, block_type, instructions)
+                    spec.Br(index:) -> evaluate_br(stack, store, index)
+                    spec.BrIf(index:) -> evaluate_br_if(stack, store, index)
+                    spec.Return -> evaluate_return(stack) |> result.map(fn (x) { #(x.0, store, x.1) })
+                    spec.Call(index:) -> evaluate_call(stack, store, index) |> result.map(fn (x) { #(x.0, x.1, option.None) })
                     // Stack-only instructions
                     _ -> result.map(
                         case instruction {
                             // Reference Instructions
                             // Parametric Instructions
                             // Variable Instructions
-                            instruction.LocalGet(index) -> evaluate_local_get(stack, index)
-                            instruction.LocalSet(index) -> evaluate_local_set(stack, index)
-                            instruction.LocalTee(index) -> evaluate_local_tee(stack, index)
+                            spec.LocalGet(index) -> evaluate_local_get(stack, index)
+                            spec.LocalSet(index) -> evaluate_local_set(stack, index)
+                            spec.LocalTee(index) -> evaluate_local_tee(stack, index)
                             // Table Instructions
                             // Memory Instructions
                             // Numeric Instructions
-                            instruction.I32Const(value) -> evaluate_const(stack, types.Integer32, IntegerConstValue(value))
-                            instruction.I64Const(value) -> evaluate_const(stack, types.Integer64, IntegerConstValue(value))
-                            instruction.I32Add -> evaluate_iadd(stack, types.Integer32)
-                            instruction.I64Add -> evaluate_iadd(stack, types.Integer64)
-                            instruction.I32Sub -> evaluate_isub(stack, types.Integer32)
-                            instruction.I64Sub -> evaluate_isub(stack, types.Integer64)
-                            instruction.I32Mul -> evaluate_imul(stack, types.Integer32)
-                            instruction.I64Mul -> evaluate_imul(stack, types.Integer64)
-                            instruction.I32DivU -> evaluate_idiv_u(stack, types.Integer32)
-                            instruction.I64DivU -> evaluate_idiv_u(stack, types.Integer64)
-                            instruction.I32DivS -> evaluate_idiv_s(stack, types.Integer32)
-                            instruction.I64DivS -> evaluate_idiv_s(stack, types.Integer64)
-                            instruction.I32RemU -> evaluate_irem_u(stack, types.Integer32)
-                            instruction.I64RemU -> evaluate_irem_u(stack, types.Integer64)
-                            instruction.I32RemS -> evaluate_irem_s(stack, types.Integer32)
-                            instruction.I64RemS -> evaluate_irem_s(stack, types.Integer64)
-                            instruction.I32And -> evaluate_iand(stack, types.Integer32)
-                            instruction.I64And -> evaluate_iand(stack, types.Integer64)
-                            instruction.I32Or -> evaluate_ior(stack, types.Integer32)
-                            instruction.I64Or -> evaluate_ior(stack, types.Integer64)
-                            instruction.I32Xor -> evaluate_ixor(stack, types.Integer32)
-                            instruction.I64Xor -> evaluate_ixor(stack, types.Integer64)
-                            instruction.I32Shl -> evaluate_ishl(stack, types.Integer32)
-                            instruction.I64Shl -> evaluate_ishl(stack, types.Integer64)
-                            instruction.I32ShrU -> evaluate_ishr_u(stack, types.Integer32)
-                            instruction.I64ShrU -> evaluate_ishr_u(stack, types.Integer64)
-                            instruction.I32ShrS -> evaluate_ishr_s(stack, types.Integer32)
-                            instruction.I64ShrS -> evaluate_ishr_s(stack, types.Integer64)
-                            instruction.I32Rotl -> evaluate_irotl(stack, types.Integer32)
-                            instruction.I64Rotl -> evaluate_irotl(stack, types.Integer64)
-                            instruction.I32Rotr -> evaluate_irotr(stack, types.Integer32)
-                            instruction.I64Rotr -> evaluate_irotr(stack, types.Integer64)
-                            instruction.I32Clz -> evaluate_iclz(stack, types.Integer32)
-                            instruction.I64Clz -> evaluate_iclz(stack, types.Integer64)
-                            instruction.I32Ctz -> evaluate_ictz(stack, types.Integer32)
-                            instruction.I64Ctz -> evaluate_ictz(stack, types.Integer64)
-                            instruction.I32Popcnt -> evaluate_ipopcnt(stack, types.Integer32)
-                            instruction.I64Popcnt -> evaluate_ipopcnt(stack, types.Integer64)
-                            instruction.I32Eqz -> evaluate_ieqz(stack, types.Integer32)
-                            instruction.I64Eqz -> evaluate_ieqz(stack, types.Integer64)
-                            instruction.I32Eq  -> evaluate_ieq(stack, types.Integer32)
-                            instruction.I64Eq  -> evaluate_ieq(stack, types.Integer64)
-                            instruction.I32Ne  -> evaluate_ine(stack, types.Integer32)
-                            instruction.I64Ne  -> evaluate_ine(stack, types.Integer64)
-                            instruction.I32LtU -> evaluate_ilt_u(stack, types.Integer32)
-                            instruction.I64LtU -> evaluate_ilt_u(stack, types.Integer64)
-                            instruction.I32LtS -> evaluate_ilt_s(stack, types.Integer32)
-                            instruction.I64LtS -> evaluate_ilt_s(stack, types.Integer64)
-                            instruction.I32GtU -> evaluate_igt_u(stack, types.Integer32)
-                            instruction.I64GtU -> evaluate_igt_u(stack, types.Integer64)
-                            instruction.I32GtS -> evaluate_igt_s(stack, types.Integer32)
-                            instruction.I64GtS -> evaluate_igt_s(stack, types.Integer64)
-                            instruction.I32LeU -> evaluate_ile_u(stack, types.Integer32)
-                            instruction.I64LeU -> evaluate_ile_u(stack, types.Integer64)
-                            instruction.I32LeS -> evaluate_ile_s(stack, types.Integer32)
-                            instruction.I64LeS -> evaluate_ile_s(stack, types.Integer64)
-                            instruction.I32GeU -> evaluate_ige_u(stack, types.Integer32)
-                            instruction.I64GeU -> evaluate_ige_u(stack, types.Integer64)
-                            instruction.I32GeS -> evaluate_ige_s(stack, types.Integer32)
-                            instruction.I64GeS -> evaluate_ige_s(stack, types.Integer64)
-                            instruction.I32Extend8S -> evaluate_iextend8_s(stack, types.Integer32)
-                            instruction.I64Extend8S -> evaluate_iextend8_s(stack, types.Integer64)
-                            instruction.I32Extend16S -> evaluate_iextend16_s(stack, types.Integer32)
-                            instruction.I64Extend16S -> evaluate_iextend16_s(stack, types.Integer64)
-                            instruction.I64Extend32S -> evaluate_iextend32_s(stack, types.Integer64)
+                            spec.I32Const(value) -> evaluate_const(stack, spec.Integer32, IntegerConstValue(value))
+                            spec.I64Const(value) -> evaluate_const(stack, spec.Integer64, IntegerConstValue(value))
+                            spec.I32Add -> evaluate_iadd(stack, spec.Integer32)
+                            spec.I64Add -> evaluate_iadd(stack, spec.Integer64)
+                            spec.I32Sub -> evaluate_isub(stack, spec.Integer32)
+                            spec.I64Sub -> evaluate_isub(stack, spec.Integer64)
+                            spec.I32Mul -> evaluate_imul(stack, spec.Integer32)
+                            spec.I64Mul -> evaluate_imul(stack, spec.Integer64)
+                            spec.I32DivU -> evaluate_idiv_u(stack, spec.Integer32)
+                            spec.I64DivU -> evaluate_idiv_u(stack, spec.Integer64)
+                            spec.I32DivS -> evaluate_idiv_s(stack, spec.Integer32)
+                            spec.I64DivS -> evaluate_idiv_s(stack, spec.Integer64)
+                            spec.I32RemU -> evaluate_irem_u(stack, spec.Integer32)
+                            spec.I64RemU -> evaluate_irem_u(stack, spec.Integer64)
+                            spec.I32RemS -> evaluate_irem_s(stack, spec.Integer32)
+                            spec.I64RemS -> evaluate_irem_s(stack, spec.Integer64)
+                            spec.I32And -> evaluate_iand(stack, spec.Integer32)
+                            spec.I64And -> evaluate_iand(stack, spec.Integer64)
+                            spec.I32Or -> evaluate_ior(stack, spec.Integer32)
+                            spec.I64Or -> evaluate_ior(stack, spec.Integer64)
+                            spec.I32Xor -> evaluate_ixor(stack, spec.Integer32)
+                            spec.I64Xor -> evaluate_ixor(stack, spec.Integer64)
+                            spec.I32Shl -> evaluate_ishl(stack, spec.Integer32)
+                            spec.I64Shl -> evaluate_ishl(stack, spec.Integer64)
+                            spec.I32ShrU -> evaluate_ishr_u(stack, spec.Integer32)
+                            spec.I64ShrU -> evaluate_ishr_u(stack, spec.Integer64)
+                            spec.I32ShrS -> evaluate_ishr_s(stack, spec.Integer32)
+                            spec.I64ShrS -> evaluate_ishr_s(stack, spec.Integer64)
+                            spec.I32Rotl -> evaluate_irotl(stack, spec.Integer32)
+                            spec.I64Rotl -> evaluate_irotl(stack, spec.Integer64)
+                            spec.I32Rotr -> evaluate_irotr(stack, spec.Integer32)
+                            spec.I64Rotr -> evaluate_irotr(stack, spec.Integer64)
+                            spec.I32Clz -> evaluate_iclz(stack, spec.Integer32)
+                            spec.I64Clz -> evaluate_iclz(stack, spec.Integer64)
+                            spec.I32Ctz -> evaluate_ictz(stack, spec.Integer32)
+                            spec.I64Ctz -> evaluate_ictz(stack, spec.Integer64)
+                            spec.I32Popcnt -> evaluate_ipopcnt(stack, spec.Integer32)
+                            spec.I64Popcnt -> evaluate_ipopcnt(stack, spec.Integer64)
+                            spec.I32Eqz -> evaluate_ieqz(stack, spec.Integer32)
+                            spec.I64Eqz -> evaluate_ieqz(stack, spec.Integer64)
+                            spec.I32Eq  -> evaluate_ieq(stack, spec.Integer32)
+                            spec.I64Eq  -> evaluate_ieq(stack, spec.Integer64)
+                            spec.I32Ne  -> evaluate_ine(stack, spec.Integer32)
+                            spec.I64Ne  -> evaluate_ine(stack, spec.Integer64)
+                            spec.I32LtU -> evaluate_ilt_u(stack, spec.Integer32)
+                            spec.I64LtU -> evaluate_ilt_u(stack, spec.Integer64)
+                            spec.I32LtS -> evaluate_ilt_s(stack, spec.Integer32)
+                            spec.I64LtS -> evaluate_ilt_s(stack, spec.Integer64)
+                            spec.I32GtU -> evaluate_igt_u(stack, spec.Integer32)
+                            spec.I64GtU -> evaluate_igt_u(stack, spec.Integer64)
+                            spec.I32GtS -> evaluate_igt_s(stack, spec.Integer32)
+                            spec.I64GtS -> evaluate_igt_s(stack, spec.Integer64)
+                            spec.I32LeU -> evaluate_ile_u(stack, spec.Integer32)
+                            spec.I64LeU -> evaluate_ile_u(stack, spec.Integer64)
+                            spec.I32LeS -> evaluate_ile_s(stack, spec.Integer32)
+                            spec.I64LeS -> evaluate_ile_s(stack, spec.Integer64)
+                            spec.I32GeU -> evaluate_ige_u(stack, spec.Integer32)
+                            spec.I64GeU -> evaluate_ige_u(stack, spec.Integer64)
+                            spec.I32GeS -> evaluate_ige_s(stack, spec.Integer32)
+                            spec.I64GeS -> evaluate_ige_s(stack, spec.Integer64)
+                            spec.I32Extend8S -> evaluate_iextend8_s(stack, spec.Integer32)
+                            spec.I64Extend8S -> evaluate_iextend8_s(stack, spec.Integer64)
+                            spec.I32Extend16S -> evaluate_iextend16_s(stack, spec.Integer32)
+                            spec.I64Extend16S -> evaluate_iextend16_s(stack, spec.Integer64)
+                            spec.I64Extend32S -> evaluate_iextend32_s(stack, spec.Integer64)
                             unknown -> trap.make(trap.BadArgument)
                                        |> trap.add_message("gwr/execution/evaluator.evaluate_expression: attempt to execute an unknown or unimplemented instruction \"" <> string.inspect(unknown) <> "\"")
                                        |> trap.to_error()
@@ -938,13 +1117,13 @@ pub fn evaluate_expression(stack: stack.Stack, store: store.Store, instructions:
     }
 }
 
-pub fn evaluate_if_else(stack: stack.Stack, store: store.Store, block_type: instruction.BlockType, if_instructions: List(instruction.Instruction), else_: option.Option(instruction.Instruction)) -> Result(#(stack.Stack, store.Store, option.Option(Jump)), trap.Trap)
+pub fn evaluate_if_else(stack: stack.Stack, store: spec.Store, block_type: spec.BlockType, if_instructions: List(spec.Instruction), else_: option.Option(spec.Instruction)) -> Result(#(stack.Stack, spec.Store, option.Option(Jump)), trap.Trap)
 {
     // 1. Assert: due to validation, a value of value type {\mathsf{i32}} is on the top of the stack.
     // 2. Pop the value {\mathsf{i32}}.{\mathsf{const}}~c from the stack.
     case stack.pop_as(from: stack, with: stack.to_value)
     {
-        Ok(#(stack, runtime.Integer32(c))) ->
+        Ok(#(stack, spec.Integer32Value(c))) ->
         {
             case c != 0
             {
@@ -955,7 +1134,7 @@ pub fn evaluate_if_else(stack: stack.Stack, store: store.Store, block_type: inst
                 //     a. Execute the block instruction {\mathsf{block}}~{\mathit{blocktype}}~{\mathit{instr}}_2^\ast~{\mathsf{end}}.
                 False -> case else_
                 {
-                    option.Some(instruction.Else(else_instructions)) -> evaluate_block(stack, store, block_type, else_instructions)
+                    option.Some(spec.Else(else_instructions)) -> evaluate_block(stack, store, block_type, else_instructions)
                     option.None -> Ok(#(stack, store, option.None))
                     anything_else -> trap.make(trap.BadArgument)
                                      |> trap.add_message("gwr/execution/evaluator.evaluate_if_else: illegal instruction in the Else's field " <> string.inspect(anything_else))
@@ -969,18 +1148,18 @@ pub fn evaluate_if_else(stack: stack.Stack, store: store.Store, block_type: inst
     }
 }
 
-pub fn expand_block_type(framestate: runtime.FrameState, block_type: instruction.BlockType) -> Result(types.FunctionType, trap.Trap)
+pub fn expand_block_type(framestate: spec.FrameState, block_type: spec.BlockType) -> Result(spec.FunctionType, trap.Trap)
 {
     case block_type
     {
-        instruction.TypeIndexBlock(index) -> framestate.module_instance.types
+        spec.TypeIndexBlock(index) -> framestate.module_instance.types
                                              |> list.take(up_to: index + 1)
                                              |> list.last
                                              |> result.replace_error(
                                                 trap.make(trap.InvalidState)
                                                 |> trap.add_message("gwr/execution/evaluator.expand_block_type: couldn't find the function type with index \"" <> int.to_string(index) <> "\"")
                                              )
-        instruction.ValueTypeBlock(type_: option.Some(valtype)) -> Ok(types.FunctionType(parameters: [], results: [valtype]))
-        instruction.ValueTypeBlock(type_: option.None) -> Ok(types.FunctionType(parameters: [], results: []))
+        spec.ValueTypeBlock(type_: option.Some(valtype)) -> Ok(spec.FunctionType(parameters: [], results: [valtype]))
+        spec.ValueTypeBlock(type_: option.None) -> Ok(spec.FunctionType(parameters: [], results: []))
     }
 }

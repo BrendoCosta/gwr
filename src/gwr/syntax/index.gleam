@@ -1,9 +1,0 @@
-pub type TypeIndex = Int
-pub type FunctionIndex = Int
-pub type TableIndex = Int
-pub type MemoryIndex = Int
-pub type GlobalIndex = Int
-pub type ElementIndex = Int
-pub type DataIndex = Int
-pub type LocalIndex = Int
-pub type LabelIndex = Int

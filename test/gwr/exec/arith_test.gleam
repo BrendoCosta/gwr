@@ -1,7 +1,7 @@
 import gleam/list
 
-import gwr/execution/numerics
-import gwr/execution/trap
+import gwr/exec/arith
+import gwr/exec/trap
 
 import gleeunit
 import gleeunit/should
@@ -26,7 +26,7 @@ pub fn iadd___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.iadd(32, a, b)
+        arith.iadd(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -45,7 +45,7 @@ pub fn isub___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.isub(32, a, b)
+        arith.isub(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -66,7 +66,7 @@ pub fn imul___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.imul(32, a, b)
+        arith.imul(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -92,7 +92,7 @@ pub fn idiv_u___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.idiv_u(32, a, b)
+        arith.idiv_u(32, a, b)
         |> should.be_ok
         |> should.equal(expected)
     })
@@ -108,7 +108,7 @@ pub fn idiv_u___i32_trap__test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.idiv_u(32, a, b)
+        arith.idiv_u(32, a, b)
         |> should.be_error
         |> trap.kind
         |> should.equal(expected)
@@ -138,9 +138,9 @@ pub fn idiv_s___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.idiv_s(32, a, b)
+        arith.idiv_s(32, a, b)
         |> should.be_ok
-        |> should.equal(numerics.unsigned(32, expected))
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -155,7 +155,7 @@ pub fn idiv_s___i32_trap__test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.idiv_s(32, a, b)
+        arith.idiv_s(32, a, b)
         |> should.be_error
         |> trap.kind
         |> should.equal(expected)
@@ -183,9 +183,9 @@ pub fn irem_u___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.irem_u(32, a, b)
+        arith.irem_u(32, a, b)
         |> should.be_ok
-        |> should.equal(numerics.unsigned(32, expected))
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -198,7 +198,7 @@ pub fn irem_u___i32_trap__test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.irem_u(32, a, b)
+        arith.irem_u(32, a, b)
         |> should.be_error
         |> trap.kind
         |> should.equal(expected)
@@ -230,9 +230,9 @@ pub fn irem_s___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.irem_s(32, a, b)
+        arith.irem_s(32, a, b)
         |> should.be_ok
-        |> should.equal(numerics.unsigned(32, expected))
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -245,7 +245,7 @@ pub fn irem_s___i32_trap__test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.irem_s(32, a, b)
+        arith.irem_s(32, a, b)
         |> should.be_error
         |> trap.kind
         |> should.equal(expected)
@@ -267,8 +267,8 @@ pub fn iand___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.iand(32, a, b)
-        |> should.equal(numerics.unsigned(32, expected))
+        arith.iand(32, a, b)
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -287,8 +287,8 @@ pub fn ior___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ior(32, a, b)
-        |> should.equal(numerics.unsigned(32, expected))
+        arith.ior(32, a, b)
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -309,8 +309,8 @@ pub fn ixor___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ixor(32, a, b)
-        |> should.equal(numerics.unsigned(32, expected))
+        arith.ixor(32, a, b)
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -332,7 +332,7 @@ pub fn ishl___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ishl(32, a, b)
+        arith.ishl(32, a, b)
         |> should.be_ok
         |> should.equal(expected)
     })
@@ -362,9 +362,9 @@ pub fn ishr_u___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ishr_u(32, a, b)
+        arith.ishr_u(32, a, b)
         |> should.be_ok
-        |> should.equal(numerics.unsigned(32, expected))
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -392,9 +392,9 @@ pub fn ishr_s___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ishr_s(32, a, b)
+        arith.ishr_s(32, a, b)
         |> should.be_ok
-        |> should.equal(numerics.unsigned(32, expected))
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -418,9 +418,9 @@ pub fn irotl___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.irotl(32, a, b)
+        arith.irotl(32, a, b)
         |> should.be_ok
-        |> should.equal(numerics.unsigned(32, expected))
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -444,9 +444,9 @@ pub fn irotr___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.irotr(32, a, b)
+        arith.irotr(32, a, b)
         |> should.be_ok
-        |> should.equal(numerics.unsigned(32, expected))
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -465,7 +465,7 @@ pub fn iclz___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, expected) = test_case
-        numerics.iclz(32, a)
+        arith.iclz(32, a)
         |> should.be_ok
         |> should.equal(expected)
     })
@@ -484,7 +484,7 @@ pub fn ictz___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, expected) = test_case
-        numerics.ictz(32, a)
+        arith.ictz(32, a)
         |> should.be_ok
         |> should.equal(expected)
     })
@@ -505,7 +505,7 @@ pub fn ipopcnt___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, expected) = test_case
-        numerics.ipopcnt(32, a)
+        arith.ipopcnt(32, a)
         |> should.be_ok
         |> should.equal(expected)
     })
@@ -523,7 +523,7 @@ pub fn ieqz___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, expected) = test_case
-        numerics.ieqz(a)
+        arith.ieqz(a)
         |> should.equal(expected)
     })
 }
@@ -549,7 +549,7 @@ pub fn ieq___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ieq(a, b)
+        arith.ieq(a, b)
         |> should.equal(expected)
     })
 }
@@ -575,7 +575,7 @@ pub fn ine___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ine(a, b)
+        arith.ine(a, b)
         |> should.equal(expected)
     })
 }
@@ -601,7 +601,7 @@ pub fn ilt_u___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ilt_u(32, a, b)
+        arith.ilt_u(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -627,7 +627,7 @@ pub fn ilt_s___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ilt_s(32, a, b)
+        arith.ilt_s(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -653,7 +653,7 @@ pub fn igt_u___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.igt_u(32, a, b)
+        arith.igt_u(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -679,7 +679,7 @@ pub fn igt_s___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.igt_s(32, a, b)
+        arith.igt_s(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -705,7 +705,7 @@ pub fn ile_u___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ile_u(32, a, b)
+        arith.ile_u(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -731,7 +731,7 @@ pub fn ile_s___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ile_s(32, a, b)
+        arith.ile_s(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -757,7 +757,7 @@ pub fn ige_u___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ige_u(32, a, b)
+        arith.ige_u(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -783,7 +783,7 @@ pub fn ige_s___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, b, expected) = test_case
-        numerics.ige_s(32, a, b)
+        arith.ige_s(32, a, b)
         |> should.equal(expected)
     })
 }
@@ -802,9 +802,9 @@ pub fn iextend8_s___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, expected) = test_case
-        numerics.iextend8_s(32, a)
+        arith.iextend8_s(32, a)
         |> should.be_ok
-        |> should.equal(numerics.unsigned(32, expected))
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -822,9 +822,9 @@ pub fn iextend16_s___i32___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, expected) = test_case
-        numerics.iextend16_s(32, a)
+        arith.iextend16_s(32, a)
         |> should.be_ok
-        |> should.equal(numerics.unsigned(32, expected))
+        |> should.equal(arith.unsigned(32, expected))
     })
 }
 
@@ -845,8 +845,8 @@ pub fn iextend32_s___i64___test()
     ]
     |> list.each(fn (test_case) {
         let #(a, expected) = test_case
-        numerics.iextend32_s(64, a)
+        arith.iextend32_s(64, a)
         |> should.be_ok
-        |> should.equal(numerics.unsigned(64, expected))
+        |> should.equal(arith.unsigned(64, expected))
     })
 }

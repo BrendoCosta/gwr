@@ -2,7 +2,7 @@ import gleam/list
 import gleam/option
 import gleam/string
 
-import gwr/execution/debug
+import gwr/debug
 
 pub opaque type ParsingError
 {
