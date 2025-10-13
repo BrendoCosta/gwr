@@ -27,6 +27,8 @@ jobs:
         with:
           otp-version: "${{ env.OTP_VERSION }}"
           gleam-version: "${{ env.GLEAM_VERSION }}"
+      - name: Check source code formatting
+        run: gleam format --check
       - name: Install build dependencies
         run: sudo apt-get -y install make podman
       - name: Download dependencies
