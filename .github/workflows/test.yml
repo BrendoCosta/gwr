@@ -16,8 +16,8 @@ on:
   schedule:
     - cron: 00 10 * * 3
 env:
-  GLEAM_VERSION: "1.9.1"
-  OTP_VERSION: "27.3"
+  GLEAM_VERSION: "1.12.0"
+  OTP_VERSION: "28.1"
 jobs:
   amd64:
     runs-on: ubuntu-latest
