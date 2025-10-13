@@ -15,12 +15,12 @@ import gwr/spec
 
 import ieee_float
 
-pub type Machine
+pub type State
 {
-    Machine(module_instance: spec.ModuleInstance, stack: stack.Stack, store: spec.Store)
+    State(module_instance: spec.ModuleInstance, stack: stack.Stack, store: spec.Store)
 }
 
-pub fn initialize(from module: spec.Module) -> Result(Machine, String)
+pub fn initialize(from module: spec.Module) -> Result(State, String)
 {
     let store = spec.Store
     (
@@ -77,7 +77,7 @@ pub fn initialize(from module: spec.Module) -> Result(Machine, String)
         exports: [],
     )
 
-    Ok(Machine(module_instance:, stack: stack.create(), store: update_references(from: store, with: module_instance)))
+    Ok(State(module_instance:, stack: stack.create(), store: update_references(from: store, with: module_instance)))
 }
 
 pub fn update_references(from store: spec.Store, with new_module_instance: spec.ModuleInstance) -> spec.Store
@@ -97,20 +97,20 @@ pub fn update_references(from store: spec.Store, with new_module_instance: spec.
     spec.Store(..store, functions: updated_functions)
 }
 
-pub fn invoke(machine: Machine, address: spec.Address, arguments: List(spec.Value)) -> Result(#(Machine, List(spec.Value)), trap.Trap)
+pub fn invoke(state: State, address: spec.Address, arguments: List(spec.Value)) -> Result(#(State, List(spec.Value)), trap.Trap)
 {
     // Push the arguments to the stack
-    let stack = stack.push(to: machine.stack, push: arguments |> list.map(fn (x) { stack.ValueEntry(x) }))
+    let stack = stack.push(to: state.stack, push: arguments |> list.map(fn (x) { stack.ValueEntry(x) }))
 
     // Invoke the function at given index
-    use #(stack, store) <- result.try(evaluate_invoke(stack, machine.store, address))
+    use #(stack, store) <- result.try(evaluate_invoke(stack, state.store, address))
 
     // Pop the results from the stack
     let #(stack, values) = stack.pop_while(from: stack, with: stack.is_value)
     let results = list.map(values, stack.to_value)
                   |> result.values
                   |> list.reverse
-    Ok(#(Machine(..machine, stack:, store:), results))
+    Ok(#(State(..state, stack:, store:), results))
 }
 
 pub fn append_web_assembly_function(to store: spec.Store, append function: spec.Function, using types_list: List(spec.FunctionType)) -> Result(spec.Store, String)

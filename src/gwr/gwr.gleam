@@ -13,7 +13,7 @@ pub type WebAssemblyInstance
     WebAssemblyInstance
     (
         binary: spec.Binary,
-        machine: exec.Machine
+        state: exec.State
     )
 }
 
@@ -25,8 +25,8 @@ pub fn load(from data: BitArray) -> Result(spec.Binary, parsing_error.ParsingErr
 
 pub fn create(from binary: spec.Binary) -> Result(WebAssemblyInstance, String)
 {
-    use machine <- result.try(exec.initialize(binary.module))
-    Ok(WebAssemblyInstance(binary: binary, machine: machine))
+    use state <- result.try(exec.initialize(binary.module))
+    Ok(WebAssemblyInstance(binary: binary, state: state))
 }
 
 pub fn call(instance: WebAssemblyInstance, name: String, arguments: List(spec.Value)) -> Result(#(WebAssemblyInstance, List(spec.Value)), trap.Trap)
@@ -47,7 +47,7 @@ pub fn call(instance: WebAssemblyInstance, name: String, arguments: List(spec.Va
         }
     )
 
-    use #(machine, results) <- result.try(exec.invoke(instance.machine, spec.FunctionAddress(function_index), arguments))
+    use #(state, results) <- result.try(exec.invoke(instance.state, spec.FunctionAddress(function_index), arguments))
 
-    Ok(#(WebAssemblyInstance(..instance, machine:), results))
+    Ok(#(WebAssemblyInstance(..instance, state:), results))
 }
