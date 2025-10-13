@@ -1,6 +1,6 @@
 import gleam/dict
 import gleam/dynamic
-import gleam/option.{type Option}
+import gleam/option
 
 import ieee_float
 
@@ -33,7 +33,7 @@ pub type LabelIndex = Int
 pub type BlockType
 {
     TypeIndexBlock(index: TypeIndex)
-    ValueTypeBlock(type_: Option(ValueType))
+    ValueTypeBlock(type_: option.Option(ValueType))
 }
 
 pub type Instruction
@@ -43,7 +43,7 @@ pub type Instruction
     NoOp
     Block(block_type: BlockType, instructions: List(Instruction))
     Loop(block_type: BlockType, instructions: List(Instruction))
-    If(block_type: BlockType, instructions: List(Instruction), else_: Option(Instruction))
+    If(block_type: BlockType, instructions: List(Instruction), else_: option.Option(Instruction))
     Else(instructions: Expression)
     Br(index: LabelIndex)
     BrIf(index: LabelIndex)
@@ -242,7 +242,7 @@ pub type Module
         globals: Vector(Global),
         elements: Vector(ElementSegment),
         datas: Vector(DataSegment),
-        start: Option(StartFunction),
+        start: option.Option(StartFunction),
         imports: Vector(Import),
         exports: Vector(Export)
     )
@@ -399,7 +399,7 @@ pub type FunctionType
 /// https://webassembly.github.io/spec/core/syntax/html#limits
 pub type Limits
 {
-    Limits(min: Int, max: Option(Int))
+    Limits(min: Int, max: option.Option(Int))
 }
 
 /// Memory types classify linear memories and their size range.
@@ -697,7 +697,7 @@ pub type Binary
 /// https://webassembly.github.io/spec/core/binary/module.html#sections
 pub type Section
 {
-    Section(id: Int, length: Int, content: Option(SectionContent))
+    Section(id: Int, length: Int, content: option.Option(SectionContent))
 }
 
 pub type SectionContent
@@ -708,7 +708,7 @@ pub type SectionContent
     /// sequence of bytes for custom use.
     /// 
     /// https://webassembly.github.io/spec/core/binary/module.html#custom-section
-    CustomSection(name: String, data: Option(BitArray))
+    CustomSection(name: String, data: option.Option(BitArray))
     
     /// The type section has the id 1. It decodes into a vector of function types that represent
     /// the component of a module.

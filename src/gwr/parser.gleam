@@ -2,7 +2,7 @@ import gleam/bit_array
 import gleam/bool
 import gleam/int
 import gleam/list
-import gleam/option.{Some, None}
+import gleam/option
 import gleam/result
 import gleam/yielder
 
@@ -69,12 +69,12 @@ pub fn parse_section(from reader: byte_reader.ByteReader) -> Result(#(byte_reade
             {
                 use #(reader, custom_section_name) <- result.try(parse_name(from: reader))
                 use #(reader, custom_section_data) <- result.try(byte_reader.read_remaining(from: reader))
-                Ok(#(reader, spec.Section(id: spec.custom_section_id, length: section_length, content: Some(spec.CustomSection(name: custom_section_name, data: Some(custom_section_data))))))
+                Ok(#(reader, spec.Section(id: spec.custom_section_id, length: section_length, content: option.Some(spec.CustomSection(name: custom_section_name, data: option.Some(custom_section_data))))))
             }
             True, id if id == spec.type_section_id ->
             {
                 use #(reader, function_types_vec) <- result.try(parse_vector(from: reader, with: parse_function_type))
-                Ok(#(reader, spec.Section(id: spec.type_section_id, length: section_length, content: Some(spec.TypeSection(function_types: function_types_vec)))))
+                Ok(#(reader, spec.Section(id: spec.type_section_id, length: section_length, content: option.Some(spec.TypeSection(function_types: function_types_vec)))))
             }
             // @TODO True, id if id == import_section_id -> {}
             True, id if id == spec.function_section_id ->
@@ -84,46 +84,46 @@ pub fn parse_section(from reader: byte_reader.ByteReader) -> Result(#(byte_reade
                     Ok(#(reader, index))
                 }))
 
-                Ok(#(reader, spec.Section(id: spec.function_section_id, length: section_length, content: Some(spec.FunctionSection(type_indices: indices_vec)))))
+                Ok(#(reader, spec.Section(id: spec.function_section_id, length: section_length, content: option.Some(spec.FunctionSection(type_indices: indices_vec)))))
             }
             // @TODO True, id if id == table_section_id -> {}
             True, id if id == spec.memory_section_id ->
             {
                 use #(reader, mem_vec) <- result.try(parse_vector(from: reader, with: parse_memory))
-                Ok(#(reader, spec.Section(id: spec.memory_section_id, length: section_length, content: Some(spec.MemorySection(memories: mem_vec)))))
+                Ok(#(reader, spec.Section(id: spec.memory_section_id, length: section_length, content: option.Some(spec.MemorySection(memories: mem_vec)))))
             }
             True, id if id == spec.global_section_id ->
             {
                 use #(reader, globals_vec) <- result.try(parse_vector(from: reader, with: parse_global))
-                Ok(#(reader, spec.Section(id: spec.global_section_id, length: section_length, content: Some(spec.GlobalSection(globals: globals_vec)))))
+                Ok(#(reader, spec.Section(id: spec.global_section_id, length: section_length, content: option.Some(spec.GlobalSection(globals: globals_vec)))))
             }
             True, id if id == spec.export_section_id ->
             {
                 use #(reader, exports_vec) <- result.try(parse_vector(from: reader, with: parse_export))
-                Ok(#(reader, spec.Section(id: spec.export_section_id, length: section_length, content: Some(spec.ExportSection(exports: exports_vec)))))
+                Ok(#(reader, spec.Section(id: spec.export_section_id, length: section_length, content: option.Some(spec.ExportSection(exports: exports_vec)))))
             }
             // @TODO True, id if id == start_section_id -> {}
             // @TODO True, id if id == element_section_id -> {}
             True, id if id == spec.code_section_id ->
             {
                 use #(reader, codes_vec) <- result.try(parse_vector(from: reader, with: parse_code))
-                Ok(#(reader, spec.Section(id: spec.code_section_id, length: section_length, content: Some(spec.CodeSection(entries: codes_vec)))))
+                Ok(#(reader, spec.Section(id: spec.code_section_id, length: section_length, content: option.Some(spec.CodeSection(entries: codes_vec)))))
             }
             // @TODO True, id if id == data_section_id -> {}
             // @TODO True, id if id == data_count_section_id -> {}
             
             // Empty sections are allowed
-            False, id if id == spec.custom_section_id -> Ok(#(reader, spec.Section(id: spec.custom_section_id, length: section_length, content: None)))
-            False, id if id == spec.type_section_id -> Ok(#(reader, spec.Section(id: spec.type_section_id, length: section_length, content: None)))
+            False, id if id == spec.custom_section_id -> Ok(#(reader, spec.Section(id: spec.custom_section_id, length: section_length, content: option.None)))
+            False, id if id == spec.type_section_id -> Ok(#(reader, spec.Section(id: spec.type_section_id, length: section_length, content: option.None)))
             // @TODO False, id if id == import_section_id -> {}
-            False, id if id == spec.function_section_id -> Ok(#(reader, spec.Section(id: spec.function_section_id, length: section_length, content: None)))
+            False, id if id == spec.function_section_id -> Ok(#(reader, spec.Section(id: spec.function_section_id, length: section_length, content: option.None)))
             // @TODO False, id if id == table_section_id -> {}
-            False, id if id == spec.memory_section_id -> Ok(#(reader, spec.Section(id: spec.memory_section_id, length: section_length, content: None)))
+            False, id if id == spec.memory_section_id -> Ok(#(reader, spec.Section(id: spec.memory_section_id, length: section_length, content: option.None)))
             // @TODO False, id if id == global_section_id -> {}
-            False, id if id == spec.export_section_id -> Ok(#(reader, spec.Section(id: spec.export_section_id, length: section_length, content: None)))
+            False, id if id == spec.export_section_id -> Ok(#(reader, spec.Section(id: spec.export_section_id, length: section_length, content: option.None)))
             // @TODO False, id if id == start_section_id -> {}
             // @TODO False, id if id == element_section_id -> {}
-            False, id if id == spec.code_section_id -> Ok(#(reader, spec.Section(id: spec.code_section_id, length: section_length, content: None)))
+            False, id if id == spec.code_section_id -> Ok(#(reader, spec.Section(id: spec.code_section_id, length: section_length, content: option.None)))
             _, _ -> parsing_error.new()
                     |> parsing_error.add_message("gwr/parser/parser.parse_section: unknown section type id \"" <> int.to_string(section_type_id) <> "\"")
                     |> parsing_error.to_error()
@@ -179,7 +179,7 @@ pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte
         globals: [],
         elements: [],
         datas: [],
-        start: None,
+        start: option.None,
         imports: [],
         exports: []
     )
@@ -198,8 +198,8 @@ pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte
                 use #(module, function_section_type_indices) <- result.try(
                     case section.content
                     {
-                        None -> Ok(#(module, function_section_type_indices))
-                        Some(content) ->
+                        option.None -> Ok(#(module, function_section_type_indices))
+                        option.Some(content) ->
                         {
                             case content
                             {
@@ -229,7 +229,7 @@ pub fn parse_binary_module(from reader: byte_reader.ByteReader) -> Result(#(byte
                                 }
                                 spec.StartSection(start_function: start_function) ->
                                 {
-                                    Ok(#(spec.Module(..module, start: Some(start_function)), function_section_type_indices))
+                                    Ok(#(spec.Module(..module, start: option.Some(start_function)), function_section_type_indices))
                                 }
                                 spec.ElementSection -> Ok(#(module, function_section_type_indices))
                                 spec.CodeSection(entries: code_entries) ->
@@ -809,9 +809,9 @@ pub fn parse_limits(from reader: byte_reader.ByteReader) -> Result(#(byte_reader
             True ->
             {
                 use #(reader, max) <- result.try(parse_unsigned_leb128_integer(from: reader))
-                Ok(#(reader, Some(max)))
+                Ok(#(reader, option.Some(max)))
             }
-            False -> Ok(#(reader, None))
+            False -> Ok(#(reader, option.None))
         }
     )
     

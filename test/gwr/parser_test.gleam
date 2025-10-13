@@ -1,6 +1,6 @@
 import gleam/bit_array
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option
 import gleam/pair
 
 import gwr/parser/byte_reader
@@ -40,7 +40,7 @@ pub fn parse_binary_module___empty_module___test()
                 globals: [],
                 elements: [],
                 datas: [],
-                start: None,
+                start: option.None,
                 imports: [],
                 exports: []
             )
@@ -87,7 +87,7 @@ pub fn parse_binary_module___basic_add___test()
                 globals: [],
                 elements: [],
                 datas: [],
-                start: None,
+                start: option.None,
                 imports: [],
                 exports: [spec.Export("addTwo", spec.FunctionExport(0))]
             )
@@ -153,7 +153,7 @@ pub fn parse_section___no_content___test()
         spec.Section(
             id: spec.type_section_id,
             length: 0,
-            content: None
+            content: option.None
         )
     )
 }
@@ -189,10 +189,10 @@ pub fn parse_memory_section_test()
         spec.Section(
             id: spec.memory_section_id,
             length: 7,
-            content: Some(spec.MemorySection(
+            content: option.Some(spec.MemorySection(
                 memories: [
-                    spec.Memory(type_: spec.Limits(min: 3, max: None)),
-                    spec.Memory(type_: spec.Limits(min: 32, max: Some(256)))
+                    spec.Memory(type_: spec.Limits(min: 3, max: option.None)),
+                    spec.Memory(type_: spec.Limits(min: 32, max: option.Some(256)))
                 ]
             ))
         )
@@ -217,7 +217,7 @@ pub fn parse_type_section_test()
         spec.Section(
             id: spec.type_section_id,
             length: 23,
-            content: Some(spec.TypeSection(
+            content: option.Some(spec.TypeSection(
                 function_types: [
                     spec.FunctionType(parameters: [spec.Number(spec.Integer32), spec.Number(spec.Integer64)], results: []),
                     spec.FunctionType(parameters: [spec.Number(spec.Float32), spec.Number(spec.Float64)], results: [spec.Vector(spec.Vector128)]),
@@ -251,7 +251,7 @@ pub fn parse_export_section_test()
         spec.Section(
             id: spec.export_section_id,
             length: 50,
-            content: Some(spec.ExportSection(
+            content: option.Some(spec.ExportSection(
                 exports: [
                     spec.Export(name: "my_function", descriptor: spec.FunctionExport(index: 0)),
                     spec.Export(name: "my_table", descriptor: spec.TableExport(index: 1)),
@@ -283,7 +283,7 @@ pub fn parse_function_section_test()
         spec.Section(
             id: spec.function_section_id,
             length: 13,
-            content: Some(spec.FunctionSection(
+            content: option.Some(spec.FunctionSection(
                 type_indices: [1, 1, 2, 3, 2147483647, 624485]
             ))
         )
@@ -312,7 +312,7 @@ pub fn parse_code_section_test()
         spec.Section(
             id: spec.code_section_id,
             length: 12,
-            content: Some(spec.CodeSection(
+            content: option.Some(spec.CodeSection(
                 entries: [
                     spec.Code(
                         size: 10,
@@ -684,7 +684,7 @@ pub fn parse_memory___with_max___test()
     parser.parse_memory(reader)
     |> should.be_ok
     |> pair.second
-    |> should.equal(spec.Memory(type_: spec.Limits(min: 65535, max: None)))
+    |> should.equal(spec.Memory(type_: spec.Limits(min: 65535, max: option.None)))
 }
 
 pub fn parse_memory___without_max___test()
@@ -693,7 +693,7 @@ pub fn parse_memory___without_max___test()
     parser.parse_memory(reader)
     |> should.be_ok
     |> pair.second
-    |> should.equal(spec.Memory(type_: spec.Limits(min: 1024, max: Some(8192))))
+    |> should.equal(spec.Memory(type_: spec.Limits(min: 1024, max: option.Some(8192))))
 }
 
 /// ***************************************************************************
@@ -760,7 +760,7 @@ pub fn parse_limits___no_max___test()
     parser.parse_limits(reader)
     |> should.be_ok
     |> pair.second
-    |> should.equal(spec.Limits(min: 3, max: None))
+    |> should.equal(spec.Limits(min: 3, max: option.None))
 }
 
 pub fn parse_limits___with_max___test()
@@ -769,7 +769,7 @@ pub fn parse_limits___with_max___test()
     parser.parse_limits(reader)
     |> should.be_ok
     |> pair.second
-    |> should.equal(spec.Limits(min: 32, max: Some(256)))
+    |> should.equal(spec.Limits(min: 32, max: option.Some(256)))
 }
 
 pub fn parse_value_type___integer_32___test()
