@@ -45,7 +45,7 @@ pub fn call(
       _ ->
         trap.make(trap.Unknown)
         |> trap.add_message(
-          "gwr/gwr.call: couldn't find an exported function with name \""
+          "couldn't find an exported function with name \""
           <> name
           <> "\" in the given module",
         )

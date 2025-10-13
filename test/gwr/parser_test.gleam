@@ -148,7 +148,7 @@ pub fn parse_binary_module___empty_data___test() {
   |> should.be_error
   |> parsing_error.get_message
   |> should.be_some
-  |> should.equal("gwr/parser/parser.parse_binary_module: empty data")
+  |> should.equal("empty data")
 }
 
 pub fn parse_binary_module___could_not_find_module_magic_number_1___test() {
@@ -158,9 +158,7 @@ pub fn parse_binary_module___could_not_find_module_magic_number_1___test() {
   |> should.be_error
   |> parsing_error.get_message
   |> should.be_some
-  |> should.equal(
-    "gwr/parser/parser.parse_binary_module: couldn't find module's magic number",
-  )
+  |> should.equal("couldn't find module's magic number")
 }
 
 pub fn parse_binary_module___could_not_find_module_magic_number_2___test() {
@@ -170,9 +168,7 @@ pub fn parse_binary_module___could_not_find_module_magic_number_2___test() {
   |> should.be_error
   |> parsing_error.get_message
   |> should.be_some
-  |> should.equal(
-    "gwr/parser/parser.parse_binary_module: couldn't find module's magic number",
-  )
+  |> should.equal("couldn't find module's magic number")
 }
 
 pub fn parse_binary_module___could_not_find_module_version_1___test() {
@@ -182,9 +178,7 @@ pub fn parse_binary_module___could_not_find_module_version_1___test() {
   |> should.be_error
   |> parsing_error.get_message
   |> should.be_some
-  |> should.equal(
-    "gwr/parser/parser.parse_binary_module: couldn't find module version",
-  )
+  |> should.equal("couldn't find module version")
 }
 
 pub fn parse_binary_module___could_not_find_module_version_2___test() {
@@ -194,9 +188,7 @@ pub fn parse_binary_module___could_not_find_module_version_2___test() {
   |> should.be_error
   |> parsing_error.get_message
   |> should.be_some
-  |> should.equal(
-    "gwr/parser/parser.parse_binary_module: couldn't find module version",
-  )
+  |> should.equal("couldn't find module version")
 }
 
 pub fn parse_section___no_content___test() {
@@ -240,7 +232,7 @@ pub fn parse_section___unexpected_end___test() {
   |> parsing_error.get_message
   |> should.be_some
   |> should.equal(
-    "gwr/parser/parser.parse_section: unexpected end of the section's content segment. Expected 9 bytes but got 8 bytes",
+    "unexpected end of the section's content segment. Expected 9 bytes but got 8 bytes",
   )
 }
 

@@ -123,7 +123,7 @@ pub fn pop_as(
     }
     _ ->
       trap.make(trap.Unknown)
-      |> trap.add_message("gwr/execution/stack.pop_as: the stack is empty")
+      |> trap.add_message("the stack is empty")
       |> trap.to_error()
   }
 }
@@ -155,7 +155,7 @@ pub fn to_value(entry: StackEntry) -> Result(spec.Value, trap.Trap) {
     _ ->
       trap.make(trap.Unknown)
       |> trap.add_message(
-        "gwr/execution/stack.to_value: the entry at the top of the stack is not a ValueEntry",
+        "the entry at the top of the stack is not a ValueEntry",
       )
       |> trap.to_error()
   }
@@ -167,7 +167,7 @@ pub fn to_label(entry: StackEntry) -> Result(spec.Label, trap.Trap) {
     _ ->
       trap.make(trap.Unknown)
       |> trap.add_message(
-        "gwr/execution/stack.to_label: the entry at the top of the stack is not a LabelEntry",
+        "the entry at the top of the stack is not a LabelEntry",
       )
       |> trap.to_error()
   }
@@ -179,7 +179,7 @@ pub fn to_frame(entry: StackEntry) -> Result(spec.Frame, trap.Trap) {
     _ ->
       trap.make(trap.Unknown)
       |> trap.add_message(
-        "gwr/execution/stack.to_frame: the entry at the top of the stack is not a ActivationEntry",
+        "the entry at the top of the stack is not a ActivationEntry",
       )
       |> trap.to_error()
   }

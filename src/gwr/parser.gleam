@@ -57,9 +57,7 @@ pub fn parse_section(
       Ok(#(reader, <<section_type_id>>)) -> Ok(#(reader, section_type_id))
       _ ->
         parsing_error.new()
-        |> parsing_error.add_message(
-          "gwr/parser/parser.parse_section: can't get section type id raw data",
-        )
+        |> parsing_error.add_message("can't get section type id raw data")
         |> parsing_error.to_error()
     },
   )
@@ -75,7 +73,7 @@ pub fn parse_section(
     when: section_length > remaining_data_length,
     return: parsing_error.new()
       |> parsing_error.add_message(
-        "gwr/parser/parser.parse_section: unexpected end of the section's content segment. Expected "
+        "unexpected end of the section's content segment. Expected "
         <> int.to_string(section_length)
         <> " bytes but got "
         <> int.to_string(remaining_data_length)
@@ -267,9 +265,7 @@ pub fn parse_section(
       _, _ ->
         parsing_error.new()
         |> parsing_error.add_message(
-          "gwr/parser/parser.parse_section: unknown section type id \""
-          <> int.to_string(section_type_id)
-          <> "\"",
+          "unknown section type id \"" <> int.to_string(section_type_id) <> "\"",
         )
         |> parsing_error.to_error()
     },
@@ -283,9 +279,7 @@ pub fn parse_binary_module(
   use <- bool.guard(
     when: byte_reader.is_empty(reader),
     return: parsing_error.new()
-      |> parsing_error.add_message(
-        "gwr/parser/parser.parse_binary_module: empty data",
-      )
+      |> parsing_error.add_message("empty data")
       |> parsing_error.to_error(),
   )
 
@@ -305,9 +299,7 @@ pub fn parse_binary_module(
   use <- bool.guard(
     when: !found_magic_number,
     return: parsing_error.new()
-      |> parsing_error.add_message(
-        "gwr/parser/parser.parse_binary_module: couldn't find module's magic number",
-      )
+      |> parsing_error.add_message("couldn't find module's magic number")
       |> parsing_error.to_error(),
   )
 
@@ -319,9 +311,7 @@ pub fn parse_binary_module(
         Ok(#(reader, version))
       _ ->
         parsing_error.new()
-        |> parsing_error.add_message(
-          "gwr/parser/parser.parse_binary_module: couldn't find module version",
-        )
+        |> parsing_error.add_message("couldn't find module version")
         |> parsing_error.to_error()
     },
   )
@@ -432,7 +422,7 @@ pub fn parse_binary_module(
                           Error(_) ->
                             parsing_error.new()
                             |> parsing_error.add_message(
-                              "gwr/parser/parser.parse_binary_module: couldn't find type index "
+                              "couldn't find type index "
                               <> int.to_string(index),
                             )
                             |> parsing_error.to_error()
@@ -520,9 +510,7 @@ pub fn parse_instruction(
       Error(reason) -> Error(reason)
       _ ->
         parsing_error.new()
-        |> parsing_error.add_message(
-          "gwr/parser/parse_instruction: unknown error reading opcode",
-        )
+        |> parsing_error.add_message("unknown error reading opcode")
         |> parsing_error.to_error()
     },
   )
@@ -575,7 +563,7 @@ pub fn parse_instruction(
         _ ->
           parsing_error.new()
           |> parsing_error.add_message(
-            "gwr/parser/parse_instruction: expected the If instruction's block to end either with an End instruction or an Else instruction",
+            "expected the If instruction's block to end either with an End instruction or an Else instruction",
           )
           |> parsing_error.to_error()
       }
@@ -789,7 +777,7 @@ pub fn parse_instruction(
         unknown ->
           parsing_error.new()
           |> parsing_error.add_message(
-            "gwr/parser/parse_instruction: unknown saturating truncation instruction opcode \"0x"
+            "unknown saturating truncation instruction opcode \"0x"
             <> int.to_base16(unknown)
             <> "\"",
           )
@@ -802,9 +790,7 @@ pub fn parse_instruction(
     unknown ->
       parsing_error.new()
       |> parsing_error.add_message(
-        "gwr/parser/parse_instruction: unknown opcode \"0x"
-        <> int.to_base16(unknown)
-        <> "\"",
+        "unknown opcode \"0x" <> int.to_base16(unknown) <> "\"",
       )
       |> parsing_error.to_error()
   })
@@ -840,7 +826,7 @@ pub fn parse_expression(
             && list.last(current_expression) != Ok(spec.End),
           return: parsing_error.new()
             |> parsing_error.add_message(
-              "gwr/parser/parse_expression: an expression must terminate with a End instruction",
+              "an expression must terminate with a End instruction",
             )
             |> parsing_error.to_error(),
         )
@@ -879,7 +865,7 @@ pub fn do_parse_instructions_until(
     False ->
       parsing_error.new()
       |> parsing_error.add_message(
-        "gwr/parser/do_parse_instructions_until: reached the end of the data yet couldn't find the instruction matching the given predicate",
+        "reached the end of the data yet couldn't find the instruction matching the given predicate",
       )
       |> parsing_error.to_error()
   }
@@ -986,17 +972,13 @@ pub fn parse_export(
       Ok(#(_, <<unknown>>)) ->
         parsing_error.new()
         |> parsing_error.add_message(
-          "gwr/parser/parse_export: unexpected export id \""
-          <> int.to_string(unknown)
-          <> "\"",
+          "unexpected export id \"" <> int.to_string(unknown) <> "\"",
         )
         |> parsing_error.to_error()
       Error(reason) -> Error(reason)
       _ ->
         parsing_error.new()
-        |> parsing_error.add_message(
-          "gwr/parser/parse_export: unknown error reading export id",
-        )
+        |> parsing_error.add_message("unknown error reading export id")
         |> parsing_error.to_error()
     },
   )
@@ -1034,9 +1016,7 @@ pub fn parse_value_type(
       Error(reason) -> Error(reason)
       _ ->
         parsing_error.new()
-        |> parsing_error.add_message(
-          "gwr/parser/parse_value_type: unknown error reading value type id",
-        )
+        |> parsing_error.add_message("unknown error reading value type id")
         |> parsing_error.to_error()
     },
   )
@@ -1052,9 +1032,7 @@ pub fn parse_value_type(
     unknown ->
       parsing_error.new()
       |> parsing_error.add_message(
-        "gwr/parser/parse_value_type: unknown value type \""
-        <> int.to_string(unknown)
-        <> "\"",
+        "unknown value type \"" <> int.to_string(unknown) <> "\"",
       )
       |> parsing_error.to_error()
   })
@@ -1081,17 +1059,13 @@ pub fn parse_limits(
       Ok(#(_, <<unknown>>)) ->
         parsing_error.new()
         |> parsing_error.add_message(
-          "gwr/parser/parse_limits: unexpected flag value \""
-          <> int.to_string(unknown)
-          <> "\"",
+          "unexpected flag value \"" <> int.to_string(unknown) <> "\"",
         )
         |> parsing_error.to_error()
       Error(reason) -> Error(reason)
       _ ->
         parsing_error.new()
-        |> parsing_error.add_message(
-          "gwr/parser/parse_limits: unknown error reading flag value",
-        )
+        |> parsing_error.add_message("unknown error reading flag value")
         |> parsing_error.to_error()
     },
   )
@@ -1139,17 +1113,13 @@ pub fn parse_function_type(
       Ok(#(_, <<unkown>>)) ->
         parsing_error.new()
         |> parsing_error.add_message(
-          "gwr/parser/parse_function_type: unexpected function type id \""
-          <> int.to_string(unkown)
-          <> "\"",
+          "unexpected function type id \"" <> int.to_string(unkown) <> "\"",
         )
         |> parsing_error.to_error()
       Error(reason) -> Error(reason)
       _ ->
         parsing_error.new()
-        |> parsing_error.add_message(
-          "gwr/parser/parse_function_type: unknown error reading function type id",
-        )
+        |> parsing_error.add_message("unknown error reading function type id")
         |> parsing_error.to_error()
     },
   )
@@ -1171,16 +1141,14 @@ pub fn parse_global_type(
       Ok(#(_, <<unkown>>)) ->
         parsing_error.new()
         |> parsing_error.add_message(
-          "gwr/parser/parse_global_type: unexpected mutability flag value \""
-          <> int.to_string(unkown)
-          <> "\"",
+          "unexpected mutability flag value \"" <> int.to_string(unkown) <> "\"",
         )
         |> parsing_error.to_error()
       Error(reason) -> Error(reason)
       _ ->
         parsing_error.new()
         |> parsing_error.add_message(
-          "gwr/parser/parse_global_type: unknown error reading mutability flag value",
+          "unknown error reading mutability flag value",
         )
         |> parsing_error.to_error()
     },

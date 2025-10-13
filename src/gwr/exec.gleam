@@ -167,10 +167,7 @@ pub fn append_web_assembly_function(
           ),
         ),
       )
-    Error(_) ->
-      Error(
-        "gwr/execution/store.append_web_assembly_function: couldn't find the type of the function among types list",
-      )
+    Error(_) -> Error("couldn't find the type of the function among types list")
   }
 }
 
@@ -195,9 +192,7 @@ pub fn ieee_float_to_builtin_float(
       use fin <- result.try(result.replace_error(
         ieee_float.to_finite(value),
         trap.make(trap.Unknown)
-          |> trap.add_message(
-            "gwr/runtime/ieee_float_to_builtin_float: ieee_float.to_finite error",
-          ),
+          |> trap.add_message("ieee_float.to_finite error"),
       ))
       Ok(spec.Finite(fin))
     }
@@ -210,9 +205,7 @@ pub fn ieee_float_to_builtin_float(
             Ok(order.Lt) -> Ok(spec.Infinite(spec.Negative))
             _ ->
               trap.make(trap.Unknown)
-              |> trap.add_message(
-                "gwr/runtime/ieee_float_to_builtin_float: ieee_float.compare error",
-              )
+              |> trap.add_message("ieee_float.compare error")
               |> trap.to_error()
           }
       }
@@ -887,9 +880,7 @@ pub fn evaluate_local_get(
   use frame <- result.try(result.replace_error(
     stack.get_current_frame(from: stack),
     trap.make(trap.InvalidState)
-      |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_local_get: couldn't get the current frame",
-      ),
+      |> trap.add_message("couldn't get the current frame"),
   ))
   // 2. Assert: due to validation, F.{\mathsf{locals}}[x] exists.
   // 3. Let {\mathit{val}} be the value F.{\mathsf{locals}}[x].
@@ -897,8 +888,7 @@ pub fn evaluate_local_get(
     dict.get(frame.framestate.locals, index),
     trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_local_get: couldn't get the local with index "
-        <> int.to_string(index),
+        "couldn't get the local with index " <> int.to_string(index),
       ),
   ))
   // 4. Push the value {\mathit{val}} to the stack.
@@ -913,17 +903,14 @@ pub fn evaluate_local_set(
   use frame <- result.try(result.replace_error(
     stack.get_current_frame(from: stack),
     trap.make(trap.InvalidState)
-      |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_local_set: couldn't get the current frame",
-      ),
+      |> trap.add_message("couldn't get the current frame"),
   ))
   // 2. Assert: due to validation, F.locals[x] exists.
   use _ <- result.try(result.replace_error(
     dict.get(frame.framestate.locals, index),
     trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_local_set: couldn't get the local with index "
-        <> int.to_string(index),
+        "couldn't get the local with index " <> int.to_string(index),
       ),
   ))
 
@@ -933,9 +920,7 @@ pub fn evaluate_local_set(
     stack.pop_as(from: stack, with: stack.to_value)
     |> result.replace_error(
       trap.make(trap.InvalidState)
-      |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_local_set: couldn't pop the value from stack",
-      ),
+      |> trap.add_message("couldn't pop the value from stack"),
     ),
   )
 
@@ -957,9 +942,7 @@ pub fn evaluate_local_set(
     )
     |> result.replace_error(
       trap.make(trap.InvalidState)
-      |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_local_set: couldn't update the current frame",
-      ),
+      |> trap.add_message("couldn't update the current frame"),
     ),
   )
   Ok(stack)
@@ -985,9 +968,7 @@ pub fn evaluate_local_tee(
     }
     _ ->
       trap.make(trap.InvalidState)
-      |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_local_tee: expected a value on the top of the stack",
-      )
+      |> trap.add_message("expected a value on the top of the stack")
       |> trap.to_error()
   }
 }
@@ -1023,9 +1004,7 @@ pub fn evaluate_return(
     stack.get_current_frame(from: stack)
     |> result.replace_error(
       trap.make(trap.InvalidState)
-      |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_return: couldn't get the current frame",
-      ),
+      |> trap.add_message("couldn't get the current frame"),
     ),
   )
   // 2. Let n be the arity of F.
@@ -1037,7 +1016,7 @@ pub fn evaluate_return(
     when: count_of_values_on_top < n,
     return: trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_return: expected the top of the stack to contains at least "
+        "expected the top of the stack to contains at least "
         <> int.to_string(n)
         <> " values but got "
         <> int.to_string(count_of_values_on_top),
@@ -1053,9 +1032,7 @@ pub fn evaluate_return(
     |> list.length
       <= 0,
     return: trap.make(trap.InvalidState)
-      |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_return: expected the stack to contains at least one frame",
-      )
+      |> trap.add_message("expected the stack to contains at least one frame")
       |> trap.to_error(),
   )
   // 6. While the top of the stack is not a frame, do:
@@ -1069,7 +1046,7 @@ pub fn evaluate_return(
     when: stack.peek(stack) != option.Some(stack.ActivationEntry(frame)),
     return: trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_return: expected the top of the stack to be the current frame",
+        "expected the top of the stack to be the current frame",
       )
       |> trap.to_error(),
   )
@@ -1091,9 +1068,7 @@ pub fn evaluate_call(
     stack.get_current_frame(from: stack)
     |> result.replace_error(
       trap.make(trap.InvalidState)
-      |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_call: couldn't get the current frame",
-      ),
+      |> trap.add_message("couldn't get the current frame"),
     ),
   )
   // 2. Assert: due to validation, F.{\mathsf{module}}.{\mathsf{funcaddrs}}[x] exists.
@@ -1103,7 +1078,7 @@ pub fn evaluate_call(
     |> result.replace_error(
       trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_call: couldn't find the address of the function with index "
+        "couldn't find the address of the function with index "
         <> int.to_string(index),
       ),
     ),
@@ -1124,7 +1099,7 @@ pub fn evaluate_invoke(
     |> result.replace_error(
       trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.invoke: couldn't find the function instance with address "
+        "couldn't find the function instance with address "
         <> address_to_string(address),
       ),
     ),
@@ -1153,7 +1128,7 @@ pub fn evaluate_invoke(
         when: count_of_values_on_top < n,
         return: trap.make(trap.InvalidState)
           |> trap.add_message(
-            "gwr/execution/evaluator.invoke: expected the top of the stack to contains "
+            "expected the top of the stack to contains "
             <> int.to_string(n)
             <> " values but got "
             <> int.to_string(count_of_values_on_top),
@@ -1223,9 +1198,7 @@ pub fn evaluate_with_frame(
         stack.get_current_frame(from: stack)
         |> result.replace_error(
           trap.make(trap.InvalidState)
-          |> trap.add_message(
-            "gwr/execution/evaluator.evaluate_with_frame: couldn't get the current frame",
-          ),
+          |> trap.add_message("couldn't get the current frame"),
         ),
       )
       // 2. Let n be the arity of the activation of F.
@@ -1237,7 +1210,7 @@ pub fn evaluate_with_frame(
         when: count_of_values_on_top != n,
         return: trap.make(trap.InvalidState)
           |> trap.add_message(
-            "gwr/execution/evaluator.evaluate_with_frame: expected the top of the stack to contains "
+            "expected the top of the stack to contains "
             <> int.to_string(n)
             <> " values but got "
             <> int.to_string(count_of_values_on_top),
@@ -1251,7 +1224,7 @@ pub fn evaluate_with_frame(
         when: stack.peek(stack) != option.Some(stack.ActivationEntry(frame)),
         return: trap.make(trap.InvalidState)
           |> trap.add_message(
-            "gwr/execution/evaluator.evaluate_with_frame: expected the current frame to be on the top of the stack",
+            "expected the current frame to be on the top of the stack",
           )
           |> trap.to_error(),
       )
@@ -1277,7 +1250,7 @@ pub fn evaluate_br(
     when: count_of_labels_in_stack < index + 1,
     return: trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_br: expected the stack to contains at least "
+        "expected the stack to contains at least "
         <> int.to_string(index + 1)
         <> " labels but got "
         <> int.to_string(count_of_labels_in_stack),
@@ -1293,8 +1266,7 @@ pub fn evaluate_br(
     |> result.replace_error(
       trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_br: couldn't find the label with index "
-        <> int.to_string(index),
+        "couldn't find the label with index " <> int.to_string(index),
       ),
     ),
   )
@@ -1307,7 +1279,7 @@ pub fn evaluate_br(
     when: count_of_values_on_top < n,
     return: trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_br: expected the top of the stack to contains at least "
+        "expected the top of the stack to contains at least "
         <> int.to_string(n)
         <> " values but got "
         <> int.to_string(count_of_values_on_top),
@@ -1334,7 +1306,7 @@ pub fn evaluate_br(
           #(_, anything_else) ->
             trap.make(trap.InvalidState)
             |> trap.add_message(
-              "gwr/execution/evaluator.evaluate_br: expected the top of the stack to contain a label but got "
+              "expected the top of the stack to contain a label but got "
               <> string.inspect(anything_else),
             )
             |> trap.to_error()
@@ -1370,7 +1342,7 @@ pub fn evaluate_br_if(
     _ ->
       trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_br_if: expected the top of the stack to contain an i32 value",
+        "expected the top of the stack to contain an i32 value",
       )
       |> trap.to_error()
   }
@@ -1387,9 +1359,7 @@ pub fn evaluate_loop(
     stack.get_current_frame(from: stack)
     |> result.replace_error(
       trap.make(trap.InvalidState)
-      |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_loop: couldn't get the current frame",
-      ),
+      |> trap.add_message("couldn't get the current frame"),
     ),
   )
   // 2. Assert: due to validation, {\mathrm{expand}}_F({\mathit{blocktype}}) is defined.
@@ -1411,7 +1381,7 @@ pub fn evaluate_loop(
     when: count_of_values_on_top < m,
     return: trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_loop: expected the top of the stack to contains at least "
+        "expected the top of the stack to contains at least "
         <> int.to_string(m)
         <> " values but got "
         <> int.to_string(count_of_values_on_top),
@@ -1435,9 +1405,7 @@ pub fn evaluate_block(
     stack.get_current_frame(from: stack)
     |> result.replace_error(
       trap.make(trap.InvalidState)
-      |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_block: couldn't get the current frame",
-      ),
+      |> trap.add_message("couldn't get the current frame"),
     ),
   )
   // 2. Assert: due to validation, {\mathrm{expand}}_F({\mathit{blocktype}}) is defined.
@@ -1457,7 +1425,7 @@ pub fn evaluate_block(
     when: count_of_values_on_top < m,
     return: trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_block: expected the top of the stack to contains at least "
+        "expected the top of the stack to contains at least "
         <> int.to_string(m)
         <> " values but got "
         <> int.to_string(count_of_values_on_top),
@@ -1501,7 +1469,7 @@ pub fn exit_with_label(
     #(_, anything_else) ->
       trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.exit_with_label: expected the label "
+        "expected the label "
         <> string.inspect(label)
         <> " pushed to the stack before execution but got "
         <> string.inspect(anything_else),
@@ -1525,9 +1493,7 @@ pub fn evaluate_expression(
         list.first(instructions)
         |> result.replace_error(
           trap.make(trap.Unknown)
-          |> trap.add_message(
-            "gwr/execution/evaluator.evaluate_expression: couldn't get the current instruction",
-          ),
+          |> trap.add_message("couldn't get the current instruction"),
         ),
       )
       use #(stack, store, jump) <- result.try(case instruction {
@@ -1631,7 +1597,7 @@ pub fn evaluate_expression(
               unknown ->
                 trap.make(trap.BadArgument)
                 |> trap.add_message(
-                  "gwr/execution/evaluator.evaluate_expression: attempt to execute an unknown or unimplemented instruction \""
+                  "attempt to execute an unknown or unimplemented instruction \""
                   <> string.inspect(unknown)
                   <> "\"",
                 )
@@ -1676,7 +1642,7 @@ pub fn evaluate_if_else(
             anything_else ->
               trap.make(trap.BadArgument)
               |> trap.add_message(
-                "gwr/execution/evaluator.evaluate_if_else: illegal instruction in the Else's field "
+                "illegal instruction in the Else's field "
                 <> string.inspect(anything_else),
               )
               |> trap.to_error()
@@ -1686,7 +1652,7 @@ pub fn evaluate_if_else(
     anything_else ->
       trap.make(trap.InvalidState)
       |> trap.add_message(
-        "gwr/execution/evaluator.evaluate_if_else: expected the If's continuation flag but got "
+        "expected the If's continuation flag but got "
         <> string.inspect(anything_else),
       )
       |> trap.to_error()
@@ -1705,7 +1671,7 @@ pub fn expand_block_type(
       |> result.replace_error(
         trap.make(trap.InvalidState)
         |> trap.add_message(
-          "gwr/execution/evaluator.expand_block_type: couldn't find the function type with index \""
+          "couldn't find the function type with index \""
           <> int.to_string(index)
           <> "\"",
         ),
