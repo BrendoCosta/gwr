@@ -1,0 +1,14 @@
+rules:
+  type:
+    level: error
+    options:
+      - build
+      - chore
+      - ci
+      - docs
+      - feat
+      - fix
+      - style
+      - refactor
+      - perf
+      - test

@@ -1,6 +1,54 @@
 {
   "lockfile_version": "1",
   "packages": {
+    "commitlint-rs@latest": {
+      "last_modified": "2025-09-18T16:33:27Z",
+      "resolved": "github:NixOS/nixpkgs/f4b140d5b253f5e2a1ff4e5506edbf8267724bde#commitlint-rs",
+      "source": "devbox-search",
+      "version": "0.2.3",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/arij9v5j83j758d89wgxhrx4gd93q1g2-commitlint-rs-0.2.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/arij9v5j83j758d89wgxhrx4gd93q1g2-commitlint-rs-0.2.3"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8grnacxadkvfrz1rjqvm0bxirlkh9apn-commitlint-rs-0.2.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/8grnacxadkvfrz1rjqvm0bxirlkh9apn-commitlint-rs-0.2.3"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/3ghi3vb9cz4n3793ad9dw5avqfh5bi6z-commitlint-rs-0.2.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/3ghi3vb9cz4n3793ad9dw5avqfh5bi6z-commitlint-rs-0.2.3"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/vwigiav7mpxwy6ka25yixc2r4606vl0x-commitlint-rs-0.2.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/vwigiav7mpxwy6ka25yixc2r4606vl0x-commitlint-rs-0.2.3"
+        }
+      }
+    },
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
       "last_modified": "2025-09-27T12:33:33Z",
       "resolved": "github:NixOS/nixpkgs/e3a3b32cc234f1683258d36c6232f150d57df015?lastModified=1758976413&narHash=sha256-hEIDTaIqvW1NMfaNgz6pjhZPZKTmACJmXxGr%2FH6isIg%3D"

@@ -1,3 +1,8 @@
+commit-msg:
+  jobs:
+    - name: Check if the commit message follows conventional commits rules
+      run: commitlint -e {1}
+
 pre-commit:
   parallel: true
   jobs:
