@@ -2,16 +2,30 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/main/.schema/devbox.schema.json",
   "packages": [
     "gleam@latest",
-    "podman@latest",
-    "lefthook@latest"
+    "lefthook@latest",
+    "wabt@latest",
+    "rustup@latest",
+    "libiconv@latest"
   ],
   "shell": {
     "init_hook": [
-      "lefthook install"
+      "lefthook install",
+      "rustup install stable",
+      "rustup default stable",
+      "rustup target add wasm32-unknown-unknown"
     ],
     "scripts": {
+      "build_test_suite": [
+        "(cd ./test_suite/rust && cargo build --release)",
+        "(cd ./test_suite/wat && find . -name '*.wat' -type f -exec echo {} \\; -exec wat2wasm {} \\;)"
+      ],
+      "clear_test_suite_build": [
+        "rm -rf test_suite/rust/target/",
+        "(cd ./test_suite/wat && find . -name '*.wasm' -type f -exec echo {} \\; -exec rm {} \\;)"
+      ],
       "test": [
-        "make test"
+        "devbox run build_test_suite",
+        "gleam test"
       ]
     }
   }

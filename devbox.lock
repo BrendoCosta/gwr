@@ -101,71 +101,128 @@
         }
       }
     },
-    "podman@latest": {
-      "last_modified": "2025-09-21T00:54:27Z",
-      "resolved": "github:NixOS/nixpkgs/51c8f9cfaae8306d135095bcdb3df9027f95542d#podman",
+    "libiconv@latest": {
+      "last_modified": "2025-09-18T16:33:27Z",
+      "resolved": "github:NixOS/nixpkgs/f4b140d5b253f5e2a1ff4e5506edbf8267724bde#libiconv",
       "source": "devbox-search",
-      "version": "5.6.1",
+      "version": "2.40",
       "systems": {
-        "aarch64-darwin": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/3bxilvgamza4wplqdsm6xpcdiy46gngy-podman-5.6.1",
-              "default": true
-            },
-            {
-              "name": "man",
-              "path": "/nix/store/pvsfk05nk8pr5c5bqf5cq6i2y1wwknwm-podman-5.6.1-man",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/3bxilvgamza4wplqdsm6xpcdiy46gngy-podman-5.6.1"
-        },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/7ps3asr8yfsv12dfw3q299qvbj99vdbk-podman-5.6.1",
-              "default": true
-            },
-            {
-              "name": "man",
-              "path": "/nix/store/gjad9m8zh5px0715by0b1rx3rvv8zs1d-podman-5.6.1-man",
+              "path": "/nix/store/bg99x2gy6iqxfk59fkl9rgnps1ljy7gy-glibc-iconv-2.40",
               "default": true
             }
           ],
-          "store_path": "/nix/store/7ps3asr8yfsv12dfw3q299qvbj99vdbk-podman-5.6.1"
-        },
-        "x86_64-darwin": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/2pll6nl9l7ldjgqw5vikxw897yjzizcv-podman-5.6.1",
-              "default": true
-            },
-            {
-              "name": "man",
-              "path": "/nix/store/37gcy1sv5n9gmgxpg7ajmp7vwm59qydd-podman-5.6.1-man",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/2pll6nl9l7ldjgqw5vikxw897yjzizcv-podman-5.6.1"
+          "store_path": "/nix/store/bg99x2gy6iqxfk59fkl9rgnps1ljy7gy-glibc-iconv-2.40"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/bk1sg8fqg7fzby33h3qznmnng5p31cig-podman-5.6.1",
-              "default": true
-            },
-            {
-              "name": "man",
-              "path": "/nix/store/is7mq8pym5b1kjzzlwbnz34lmc1j29rv-podman-5.6.1-man",
+              "path": "/nix/store/b9d57nlfb8a2fn7n4kfl1wf3y26mgrg4-glibc-iconv-2.40",
               "default": true
             }
           ],
-          "store_path": "/nix/store/bk1sg8fqg7fzby33h3qznmnng5p31cig-podman-5.6.1"
+          "store_path": "/nix/store/b9d57nlfb8a2fn7n4kfl1wf3y26mgrg4-glibc-iconv-2.40"
+        }
+      }
+    },
+    "rustup@latest": {
+      "last_modified": "2025-09-18T16:33:27Z",
+      "plugin_version": "0.0.1",
+      "resolved": "github:NixOS/nixpkgs/f4b140d5b253f5e2a1ff4e5506edbf8267724bde#rustup",
+      "source": "devbox-search",
+      "version": "1.28.2",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/q70bj005jz3smra5qikxq256rn22fsim-rustup-1.28.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/q70bj005jz3smra5qikxq256rn22fsim-rustup-1.28.2"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/x2k79iz4pb9my69661c2gg5vm5sgf42q-rustup-1.28.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/x2k79iz4pb9my69661c2gg5vm5sgf42q-rustup-1.28.2"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/qg0riz8jgd02asrjn83bg1ifx9b1bp46-rustup-1.28.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/qg0riz8jgd02asrjn83bg1ifx9b1bp46-rustup-1.28.2"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ra2zx3av6408y4w2mcfryj1p2m69x2j1-rustup-1.28.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/ra2zx3av6408y4w2mcfryj1p2m69x2j1-rustup-1.28.2"
+        }
+      }
+    },
+    "wabt@latest": {
+      "last_modified": "2025-09-18T16:33:27Z",
+      "resolved": "github:NixOS/nixpkgs/f4b140d5b253f5e2a1ff4e5506edbf8267724bde#wabt",
+      "source": "devbox-search",
+      "version": "1.0.37",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/k1634lsjawv22qdlhhjs27splw5qsfz6-wabt-1.0.37",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/k1634lsjawv22qdlhhjs27splw5qsfz6-wabt-1.0.37"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/l2lz5zaxck9d1dz1mnyz8f9849cmgwvz-wabt-1.0.37",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/l2lz5zaxck9d1dz1mnyz8f9849cmgwvz-wabt-1.0.37"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/95mjpdr9hn0qzkqb3zjmisa504l7fhb3-wabt-1.0.37",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/95mjpdr9hn0qzkqb3zjmisa504l7fhb3-wabt-1.0.37"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/61d9bkxpaxvfw5qiav3n9jknkql7p9vi-wabt-1.0.37",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/61d9bkxpaxvfw5qiav3n9jknkql7p9vi-wabt-1.0.37"
         }
       }
     }

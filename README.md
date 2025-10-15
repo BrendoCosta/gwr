@@ -124,13 +124,14 @@ pub fn main()
 
 ### Testing
 
-To test the project, you must have Make and Docker (or Podman) installed in your environment. The project has a test suite written in Rust and WebAssembly text format intended to be built for the wasm target; the build process is containerized so there is no need to install additional toolchains.
+To test the project, you must have [Devbox](https://www.jetify.com/docs/devbox/installing-devbox) installed in your environment. The project has a test suite written in Rust and WebAssembly text format intended to be built for the wasm target; Devbox setups a isolated build and testing environment with all the required tools so there is no need to install additional toolchains in your main environment.
 
 ```sh
-make test
+devbox shell
+devbox run test
 ```
 
-The above command is equivalent to ```make build-test-suite``` followed by ```gleam test```. Of course, once you have built the test suite, you can simply invoke ```gleam test```.
+The above command is equivalent to ```devbox run build_test_suite``` followed by ```gleam test```. Of course, once you have built the test suite, you can simply invoke ```gleam test```.
 
 ## Contributing
 
