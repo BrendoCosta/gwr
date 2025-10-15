@@ -107,7 +107,7 @@ gleam add simplifile
 
 ```gleam
 import gwr/gwr
-import gwr/execution/runtime
+import gwr/spec
 import simplifile
 
 pub fn main()
@@ -115,8 +115,8 @@ pub fn main()
     let assert Ok(data) = simplifile.read_bits(from: "fib.wasm")
     let assert Ok(binary) = gwr.load(from: data)
     let assert Ok(instance) = gwr.create(from: binary)
-    let assert Ok(#(_instance, result)) = gwr.call(instance, "fib", [runtime.Integer32(18)])
-    let assert [runtime.Integer32(2584)] = result
+    let assert Ok(#(_instance, result)) = gwr.call(instance, "fib", [spec.Integer32Value(18)])
+    let assert [spec.Integer32Value(2584)] = result
 }
 ```
 
