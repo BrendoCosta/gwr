@@ -6,7 +6,8 @@
     "wabt@latest",
     "rustup@latest",
     "libiconv@latest",
-    "commitlint-rs@latest"
+    "commitlint-rs@latest",
+    "erlang_28@latest"
   ],
   "shell": {
     "init_hook": [
