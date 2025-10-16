@@ -5,6 +5,7 @@
 [![Package License](https://img.shields.io/hexpm/l/gwr)](/LICENSE)
 [![Package Total Downloads Count](https://img.shields.io/hexpm/dt/gwr)](https://hex.pm/packages/gwr)
 [![Test Status](https://github.com/BrendoCosta/gwr/actions/workflows/test.yaml/badge.svg)](https://github.com/BrendoCosta/gwr/actions)
+[![Release Status](https://github.com/BrendoCosta/gwr/actions/workflows/release.yaml/badge.svg)](https://github.com/BrendoCosta/gwr/actions)
 ![Available for the Erlang runtime](https://img.shields.io/badge/target-Erlang-a2003e)
 [![Total Stars Count](https://img.shields.io/github/stars/BrendoCosta/gwr)](https://hex.pm/packages/gwr)
 
