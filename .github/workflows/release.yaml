@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 env:
   GLEAM_VERSION: "1.12.0"
   OTP_VERSION: "28.1"
