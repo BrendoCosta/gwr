@@ -1,5 +1,5 @@
 name = "gwr"
-version = "0.0.2"
+version = "0.1.0"
 gleam = ">= 1.11.0"
 description = "An experimental work-in-progress (WIP) WebAssembly runtime written in Gleam."
 licences = ["MIT"]
