@@ -1,0 +1,40 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    branches:
+      - main
+      - dev
+  schedule:
+    - cron: 00 10 * * 3
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      
+      - name: Install build environment dependencies
+        uses: jetify-com/devbox-install-action@v0.14.0
+      
+      - name: Check source code formatting
+        run: devbox run gleam format --check
+      
+      - name: Download dependencies
+        run: devbox run gleam deps download
+      
+      - name: Update dependencies
+        run: devbox run gleam update
+      
+      - name: Run tests
+        run: devbox run test

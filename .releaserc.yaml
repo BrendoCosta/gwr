@@ -1,0 +1,14 @@
+branches:
+  - main
+  
+plugins:
+  - "@semantic-release/commit-analyzer"
+  - "@semantic-release/release-notes-generator"
+  - "@semantic-release/github"
+  - - "@semantic-release/exec"
+    - prepareCmd: >
+        sed -i "s/version\s*=\s*\"[^\"]*\"/version = \"${nextRelease.version}\"/g" gleam.toml
+  - - "@semantic-release/git"
+    - assets: ["gleam.toml"]
+      message: >
+        chore: bump package version to v${nextRelease.version} [skip ci]
